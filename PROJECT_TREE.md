@@ -4,6 +4,7 @@
 horn-det/
 ├── AGENTS.md
 ├── README.md
+├── CHANGELOG.md
 ├── PROJECT_TREE.md
 ├── docs/
 │   ├── README.md
