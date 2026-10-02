@@ -102,7 +102,11 @@ def train_model(model, dataset, epochs=10, batch_size=32, learning_rate=1e-3,
             losses.append(float(loss.detach()))
         model.eval()
         with torch.no_grad():
-            validation = float(torch.nn.functional.cross_entropy(model(features[indices["validation"]]), labels[indices["validation"]]))
+            validation_sum = 0.0
+            for start in range(0, len(indices["validation"]), batch_size):
+                batch = indices["validation"][start:start + batch_size]
+                validation_sum += float(torch.nn.functional.cross_entropy(model(features[batch]), labels[batch], reduction="sum"))
+            validation = validation_sum / len(indices["validation"])
         history.append({"epoch": epoch + 1, "train_loss": float(np.mean(losses)), "validation_loss": validation})
         if validation < best:
             best, chosen = validation, deepcopy(model.state_dict())

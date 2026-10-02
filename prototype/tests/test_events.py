@@ -81,3 +81,16 @@ def test_camera_polling_does_not_postpone_exposure():
         simulation.advance(float(time))
     assert len(simulation.exposures) == 1
     assert simulation.exposures[0]["exposure_s"] == pytest.approx(0.03)
+
+
+def test_capture_latches_target_and_queues_distinct_events():
+    from horn.camera import Action
+    simulation = CameraSimulation(speed=100, exposure_delay=0.02)
+    simulation.feed(Action("capture", 1, 0, 30))
+    simulation.feed(Action("turn", 1, 100000, -60))
+    simulation.feed(Action("capture", 2, 100000, -30))
+    simulation.advance(2)
+    assert [item["pan"] for item in simulation.exposures] == [30, -30]
+    assert [item["event_id"] for item in simulation.exposures] == [1, 2]
+    assert simulation.exposures[0]["exposure_s"] == pytest.approx(0.32)
+    assert simulation.exposures[1]["exposure_s"] == pytest.approx(0.94)

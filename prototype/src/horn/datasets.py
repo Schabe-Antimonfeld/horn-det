@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from .config import Config
+from .calibration import remove_dc
 from .features import mel_energy, log_mel, mfcc, statistics, PCEN
 from .frontend import read_audio, stft, power
 
@@ -119,6 +120,7 @@ def prepare(records, config=Config(), frontend="logmel", stride=1, encoder=None)
     features, labels, groups, splits, powers, identities = [], [], [], [], [], []
     for record in records:
         audio = read_audio(record.path, config.sample_rate, record.channel)
+        audio, _ = remove_dc(audio)
         if any(end > len(audio) / config.sample_rate for _, end in record.intervals):
             raise ValueError("Horn interval extends beyond its recording")
         if frontend == "panns" and audio.shape[1] != 1:

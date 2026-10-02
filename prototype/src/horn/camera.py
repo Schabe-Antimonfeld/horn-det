@@ -79,23 +79,37 @@ class CameraSimulation:
     def advance(self, time):
         if not np.isfinite(time) or time < self.time:
             raise ValueError("Camera time must be finite and monotonic")
+        while self.pending and self.pending[0][2] <= time:
+            event_id, pan, ready = self.pending.pop(0)
+            self.pan, self.target, self.time = pan, pan, ready
+            self.exposures.append({"event_id": event_id, "exposure_s": ready, "pan": pan})
+            if self.pending:
+                next_id, next_pan, _ = self.pending[0]
+                self.target = next_pan
+                self.arrival = self.time + abs(self.target - self.pan) / self.speed
+                self.pending[0] = (next_id, next_pan, self.arrival + self.exposure_delay)
         travel = self.speed * (time - self.time)
         self.pan += np.clip(self.target - self.pan, -travel, travel)
-        completed = []
-        for event_id, ready in self.pending:
-            if time >= ready and self.pan == self.target:
-                self.exposures.append({"event_id": event_id, "exposure_s": ready, "pan": self.pan})
-                completed.append(event_id)
-        self.pending = [(event_id, ready) for event_id, ready in self.pending if event_id not in completed]
         self.time = time
 
     def feed(self, action, received_s=None):
         received_s = action.timestamp / 1000000 if received_s is None else received_s
         self.advance(received_s)
-        if action.kind in ("turn", "capture"):
-            if action.pan != self.target:
-                self.target = action.pan
-                self.arrival = received_s + abs(self.target - self.pan) / self.speed
-                self.pending = [(event_id, self.arrival + self.exposure_delay) for event_id, _ in self.pending]
-        if action.kind == "capture" and action.event_id not in [event_id for event_id, _ in self.pending]:
-            self.pending.append((action.event_id, max(self.arrival, received_s) + self.exposure_delay))
+        if action.kind not in ("turn", "capture"):
+            return
+        if action.pan is None or not np.isfinite(action.pan):
+            raise ValueError("Camera action requires a finite target")
+        if action.kind == "turn" and self.pending:
+            return
+        if action.kind == "capture":
+            known = [item[0] for item in self.pending] + [item["event_id"] for item in self.exposures]
+            if action.event_id in known:
+                return
+            if self.pending:
+                self.pending.append((action.event_id, action.pan, float("inf")))
+                return
+        if action.pan != self.target:
+            self.target = action.pan
+            self.arrival = received_s + abs(self.target - self.pan) / self.speed
+        if action.kind == "capture":
+            self.pending.append((action.event_id, action.pan, max(self.arrival, received_s) + self.exposure_delay))

@@ -60,3 +60,42 @@ def remove_dc(audio, coefficient=0.995, state=None):
     if not len(audio):
         return audio.copy(), state.copy()
     return lfilter([1, -1], [1, -coefficient], audio, axis=0, zi=state)
+
+
+class StreamCalibration:
+    """Causal sinc calibration; 32-tap-center buffering is included in processing delay."""
+
+    def __init__(self, gains, delays, taps=65):
+        gains, delays = np.asarray(gains, dtype=float), np.asarray(delays, dtype=float)
+        if gains.ndim != 1 or gains.shape != delays.shape or not len(gains):
+            raise ValueError("Calibration vectors must match")
+        if not np.isfinite(gains).all() or not np.isfinite(delays).all() or np.any(gains <= 0):
+            raise ValueError("Calibration must be finite with positive gains")
+        if taps < 3 or taps % 2 == 0:
+            raise ValueError("Calibration filter requires an odd length")
+        self.gains = gains
+        self.common = max(0, float(delays.max()))
+        self.latency = self.common + taps // 2
+        shifts = self.common - delays
+        self.integers = np.floor(shifts).astype(int)
+        self.kernels = []
+        self.states = [np.zeros(taps - 1) for _ in gains]
+        self.buffers = [np.zeros(integer) for integer in self.integers]
+        for shift, integer in zip(shifts, self.integers):
+            kernel = np.sinc(np.arange(taps) - taps // 2 - (shift - integer)) * np.hanning(taps)
+            self.kernels.append(kernel / kernel.sum())
+
+    def feed(self, audio):
+        audio = audio_array(audio)
+        if audio.shape[1] != len(self.gains):
+            raise ValueError("Calibration channel count changed")
+        if not len(audio):
+            return audio.copy()
+        output = np.empty_like(audio)
+        for channel, kernel in enumerate(self.kernels):
+            filtered, self.states[channel] = lfilter(kernel, [1], audio[:, channel] / self.gains[channel],
+                                                      zi=self.states[channel])
+            buffered = np.concatenate((self.buffers[channel], filtered))
+            output[:, channel] = buffered[:len(audio)]
+            self.buffers[channel] = buffered[len(audio):]
+        return output

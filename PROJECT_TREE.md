@@ -24,6 +24,7 @@ horn-det/
 │   ├── pyproject.toml
 │   ├── uv.lock
 │   ├── README.md
+│   ├── main.py
 │   ├── src/horn/
 │   └── tests/
 └── references/

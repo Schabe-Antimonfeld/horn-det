@@ -1,6 +1,6 @@
 # Python 算法原型
 
-使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。模型阶段使用 `uv sync --extra learning` 安装 CPU PyTorch 与 scikit-learn。依赖版本由 `uv.lock` 固定。
+使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。完整模型与测试使用 `uv run --extra learning pytest`，CPU PyTorch 与 scikit-learn 在 learning extra 中；依赖版本由 `uv.lock` 固定。以下含模型的命令均携带 `--extra learning`，防止 uv 自动同步时移除可选依赖。
 
 音频统一为 `(samples, channels)`，频谱使用负指数正变换，麦克风对按 `i < j` 排序，TDOA 为 `tau_i - tau_j`，0° 指向 +x，正角转向 +y。参数入口是 `src/horn/config.py`。
 
@@ -14,7 +14,7 @@
 | 检测、训练和候选 | 07 | 已实现，累计 54 项测试通过；候选选型待确定 |
 | 事件与相机接口 | 10 | 已实现，累计 59 项测试通过 |
 | 定点和对拍导出 | 09 | 已实现，累计 65 项测试通过 |
-| 流水线及评价 | 01、12 | 待实现 |
+| 流水线及评价 | 01、12 | 已实现，累计 77 项测试通过；225 样本矩阵与端到端演示已运行 |
 
 数值测试与合成数据只证明参考实现的行为，不代表道路精度。真实音频、预训练权重与输出分别放在被忽略的 `data/`、`weights/`、`outputs/` 中；不提交虚拟环境、数据或模型二进制。
 
@@ -35,3 +35,89 @@
 `events` 实现迟滞与帧计数状态机，`Probability` 和 `Direction` 必须关联同一帧，候选分配 ID，END 保留 ID，IDLE 为零。默认状态门限是待验证的演示设置。wire 是本原型的联调提案：小端 `<BHhHQI`，19 bytes；首字节 bits 0–1=state、bit 2=horn_valid、bit 3=doa_valid，其余保留为零。Q0.16 和 Q9.7 按文档舍入/饱和。`camera` 只产生转向、抓拍、保存或不可达动作，支持反向云台、偏角和机械范围，抓拍按事件去重；模拟器记录转向到位后的曝光时间。实际设备通信和时钟同步需硬件联调。
 
 `fixed` 提供半整数远离零舍入、饱和、完整中间乘积、整数 radix-2 FFT/IFFT、10-bit-address 倒数 LUT、近似模长 PHAT、PSD 更新、三个频率因子、Mel/log LUT、整数/分数延迟及 SRP。参考配置 FFT 每级右移 1 bit，前向总缩放 1/N，IFFT 总缩放 1/N，FFT/GCC 为 signed Q9.15（24 bits），PHAT 为 Q1.15，交叉谱保留 signed 49-bit/Q19.30 中间量，功率保留 unsigned 48-bit 中间量，融合后 POWER 为 unsigned Q10.30（40 bits）；实际噪声同功率尺度。28 对累加保留至少 5 增长位。log 下限设为一个 POWER code（2^-30），这是需要量化验证的工程选择。导出 `.npz`、逐行十六进制 `.mem` 与配置/缩放/饱和 JSON；输入是已校准的一帧。FFT IP 的级间算法不同会产生不同编码，联调必须匹配本配置或据 IP 重建参考。CNN 的 `quantize_model` 仅提供对称权重量化误差对照，不是 PL 整数推理内核。
+
+## 执行
+
+在 `prototype/` 执行；`main.py` 是源码启动入口，不依赖安装包。
+
+```powershell
+uv run --extra learning pytest
+uv run python main.py audit
+uv run --extra learning python main.py demo --output outputs/demo
+uv run python main.py benchmark --output outputs/benchmark
+uv run python main.py export-golden --output outputs/golden
+```
+
+`demo` 生成分组独立的合成训练/验证/测试录音，训练 SVM 和 Tiny CNN，统计先验、比较 8-bit 权重量化，再跑已知单声源阵列事件。全部产物保留在 `outputs/demo/`；它只是可复现的工作流验证，分类容易、监控时间短，不能外推精度或误报率。`benchmark` 覆盖文档的 9 角度 × 5 SNR × 5 噪声代理，共 225 个样本，比较 GCC、SRP、六组频率消融及整数/扇区/剪枝对照；默认先验来自另一组固定种子的合成训练源。报告包含逐样本编号、无效数量、MAE/MedAE/P90/SR10、CPU 时间与回退比例，背景 PSD 是受控的纯背景统计，不代表在线估计已经通过道路验证。
+
+导入实际音频需先准备 manifest，确认录音来源与许可：
+
+```powershell
+uv run python main.py split --manifest data/unassigned.jsonl --output data/split.jsonl --seed 0
+uv run python main.py prepare --manifest data/split.jsonl --frontend logmel --output data/logmel.npz
+uv run --extra learning python main.py train --dataset data/logmel.npz --model tiny --epochs 30 --output weights/tiny.pt
+uv run --extra learning python main.py evaluate-model --dataset data/logmel.npz --model weights/tiny.pt --quantize 8 --output outputs/classifier.json
+uv run python main.py learn-prior --dataset data/logmel.npz --output weights/prior.npz
+```
+
+已有官方分组/折划分时保留它，直接使用指定的 train/validation/test manifest，跳过 `split`。该命令只接受 unassigned，并按关联来源的连通组划分，不自动推测 HornBase 文件名或替代 UrbanSound8K 官方折。训练仅访问 train，模型挑选和 SVM 校准使用 validation；评价选择的概率阈值写入报告，测试时固定。新 road 数据需另列来源，不能把训练源的增强版本当成测试源。
+
+候选仍为**待确定**，分别重训比较：
+
+```powershell
+uv run python main.py prepare --manifest data/split.jsonl --frontend mfcc --output data/mfcc.npz
+uv run --extra learning python main.py train --dataset data/mfcc.npz --model svm --output weights/svm.npz
+uv run --extra learning python main.py train --dataset data/mfcc.npz --model mlp --output weights/mlp.pt
+uv run python main.py prepare --manifest data/split.jsonl --frontend pcen --output data/pcen.npz
+uv run --extra learning python main.py train --dataset data/pcen.npz --model tiny --output weights/pcen.pt
+uv run --extra learning python main.py train --dataset data/logmel.npz --model crnn --output weights/crnn.pt
+uv run --extra learning python main.py fetch-pretrained --output weights/Cnn6.pth
+uv run --extra learning python main.py prepare --manifest data/split.jsonl --frontend panns --pretrained weights/Cnn6.pth --output data/panns.npz
+uv run --extra learning python main.py train --dataset data/panns.npz --model transfer --pretrained weights/Cnn6.pth --output weights/teacher.pt
+uv run --extra learning python main.py train --dataset data/panns.npz --model transfer --pretrained weights/Cnn6.pth --fine-tune --output weights/teacher-finetuned.pt
+uv run --extra learning python main.py train --dataset data/logmel.npz --model tiny --teacher weights/teacher.pt --teacher-dataset data/panns.npz --output weights/student.pt
+```
+
+教师和学生输入可有不同前端，但必须来自同样的文件与采样窗口，`identities/groups/splits/labels` 逐项对齐后才允许蒸馏。Cnn6 的前端需要显式单通道 manifest。CRNN CLI 默认使用每个上下文从零状态开始的因果窗口分类，保持训练/推理一致；`sequence` 提供连续状态缓存，若启用 `Detector(..., recurrent=True)`，需用连续序列重新训练与验证，不能假定两种状态策略等价。
+
+阵列文件运行与相机策略模拟：
+
+```powershell
+uv run --extra learning python main.py run --input data/array.wav --model weights/tiny.pt --prior weights/prior.npz --background-prefix 0.3 --output outputs/run
+uv run --extra learning python main.py run --input data/array.wav --model weights/tiny.pt --mode srp --realtime --labels data/events.json --continuous --output outputs/paced
+uv run --extra learning python main.py run --input data/stereo.wav --model weights/tiny.pt --mode detect --output outputs/detection
+```
+
+`--background-prefix` 是调用方明确确认无鸣笛的起始时长；不知道时保持 0，此时 Horn-aware 无有效 PSD，定位无效。事件标签 JSON 格式为 `[[start_seconds,end_seconds],...]`，只有 `--continuous` 才计算 FP/hour。`--realtime` 只是按采样时钟节奏播放 WAV，记录候选/确认输出延迟，不是实际 ADC 或相机测量；离线输出时钟不可与虚拟输入时钟相减。相机曝光指标单独标为 simulated。
+
+按第 08 章，检测概率与空间峰不能自动证明同属鸣笛。默认 `doa_valid=0`，数值定位留在逐帧 `numerical_direction` 中；已知单声源仿真或已完成外部归属验证的条件才使用 `--association-verified` 启用定位输出及模拟转向/抓拍。这个开关记录验证前提，不实现多声源识别。多声源自动归属仍待验证，不能仅以 PSR 高就认定声源是鸣笛。
+
+`--profile` 接收 JSON，字段为 `config/search/search_mode/fusion/camera/gate/weighting/calibration/channels/coordinates`，`search_mode` 可为 full/coarse/sector。未给出时使用明确记录的演示默认值，例如：
+
+```json
+{
+  "search_mode": "sector",
+  "fusion": {"beta": 0.8, "on": 0.7, "off": 0.3, "confirm": 3, "release": 5, "timeout": 100},
+  "search": {"interpolation": true, "selected_pairs": 8},
+  "calibration": {"gains": [1,1,1,1,1,1,1,1], "delays": [0,0,0,0,0,0,0,0]},
+  "camera": {"offset": 0, "sign": 1, "lower": -90, "upper": 90}
+}
+```
+
+流式校准使用因果 65-tap sinc，多 32 sample 滤波延迟；有通道误差时再加公共补偿延迟，均记录在运行报告。训练提取与在线前端均使用同一因果去直流滤波，已验证带 DC 偏置时 MFCC/Log-Mel/PCEN 的特征一致。结果包括逐帧 JSONL、wire binary、事件、相机模拟曝光和统计 JSON。模拟抓拍锁定请求时的角度，等待曝光期间不被后续转向改写，多个事件按独立目标排队；这个调度策略尚需实际相机联调。无模型时只能产生候选，不能确认鸣笛；普通双声道用 detect 模式，不能作为已知几何的阵列定位数据。
+
+## 当前验证证据与交付边界
+
+完整测试包含真实 Cnn6 权重前端对拍（需先 fetch，否则该可选集成测试明确 skip），模型训练/保存/恢复、分组与事件匹配、因果流式等价和整数饱和。已执行 Tiny CNN、SVM、其他候选训练路径、迁移冻结/微调、端到端合成事件、225 个匹配样本与 1024-point golden 导出。文档本地链接、引用映射、参数、代码注释与空白检查使用 `audit`。
+
+默认种子 0 的定位矩阵结果：
+
+| Route | Valid/Total | MAE（有效子集） | P90 | SR10（全部样本） |
+|---|---|---|---|---|
+| GCC-PHAT | 182/225 | 0.484° | 1° | 80.89% |
+| SRP-PHAT | 225/225 | 1.627° | 5° | 97.33% |
+| Horn-aware SRP | 225/225 | 0.444° | 1° | 99.56% |
+
+GCC 的较小 MAE 伴随 43 个无效结果，不能只按有效子集误差选型。当前 NumPy 实现的全网格搜索比 GCC 扇区搜索更快；减少评分次数不保证 Python 耗时下降，也不能推断 FPGA 结果。测试矩阵并未涵盖真实多径、安装误差和道路竞争声源，所有候选、门限和位宽仍待实测冻结。
+
+算法代码与运行路径已覆盖文档中的原型范围；尚未完成的外部验收是：真实 HornBase/路侧来源核查与正式训练、连续路侧误报率、声源归属验证、实际相机通信/时钟同步、FPGA RTL/IP 对拍、资源/功耗/Fmax 与板上吞吐。`fpga_resources` 保持 null，不填造数。权重量化对照不是完整整数 CNN。原型文件、锁文件和测试提交 Git；数据、模型、环境及生成报告保留本地且被忽略。

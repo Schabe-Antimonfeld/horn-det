@@ -12,7 +12,7 @@ This repository documents FPGA vehicle-horn detection and direction estimation a
 
 ## Build, Test, and Development Commands
 
-Run `uv sync` and `uv run pytest` from `prototype/`; model tests require `uv sync --extra learning`. Useful read-only checks from the repository root:
+Run `uv sync` and `uv run pytest` from `prototype/`; full model tests use `uv run --extra learning pytest`. Run `uv run python main.py audit` there for local document consistency checks. Useful read-only checks from the repository root:
 
 ```powershell
 rg --files                 # List repository files.

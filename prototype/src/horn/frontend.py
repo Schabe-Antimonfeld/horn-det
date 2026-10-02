@@ -45,6 +45,7 @@ class STFT:
         self.buffer = None
         self.start = 0
         self.identity = 0
+        self.peak_buffer = 0
 
     def feed(self, audio):
         audio = audio_array(audio)
@@ -53,6 +54,7 @@ class STFT:
         if self.buffer.shape[1] != audio.shape[1]:
             raise ValueError("Channel count changed during stream")
         self.buffer = np.concatenate((self.buffer, audio))
+        self.peak_buffer = max(self.peak_buffer, len(self.buffer))
         frames = []
         while len(self.buffer) >= self.config.frame:
             spectrum = np.fft.rfft(self.buffer[:self.config.frame] * self.window[:, None], axis=0)
