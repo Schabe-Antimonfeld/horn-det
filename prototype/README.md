@@ -13,7 +13,7 @@
 | Horn-aware 权重 | 08 | 已实现，累计 42 项测试通过 |
 | 检测、训练和候选 | 07 | 已实现，累计 54 项测试通过；候选选型待确定 |
 | 事件与相机接口 | 10 | 已实现，累计 59 项测试通过 |
-| 定点和对拍导出 | 09 | 待实现 |
+| 定点和对拍导出 | 09 | 已实现，累计 65 项测试通过 |
 | 流水线及评价 | 01、12 | 待实现 |
 
 数值测试与合成数据只证明参考实现的行为，不代表道路精度。真实音频、预训练权重与输出分别放在被忽略的 `data/`、`weights/`、`outputs/` 中；不提交虚拟环境、数据或模型二进制。
@@ -33,3 +33,5 @@
 迁移候选采用独立实现的 PANNs Cnn6 兼容编码器（[R8](../docs/13_文献来源映射与复现边界.md)），支持冻结及末层微调。真实权重来自 [Zenodo 3987831](https://zenodo.org/records/3987831)，文件 `Cnn6_mAP=0.343.pth`，23,698,321 bytes，MD5 `e25e26b84585b14c7754c91e48efc9be`，记录许可 CC BY 4.0。已核对上游 `pytorch/models.py` 的 commit `d2f4b8c18eab44737fcc0de1248ae21eb43f6aa4`；不执行上游代码。前端使用 32 kHz、periodic Hann、1024 FFT、320 hop、reflect center、权重内置的 64-bin Mel 矩阵和 dB 压缩，并与权重内置 STFT 卷积核对拍。短窗适配只使用已完成的历史窗口，仍需重新训练鸣笛头并测量冷启动；不等同于共享 STFT 的主线，也不默认满足部署资源。离线分类数据固定选单通道，权重放在忽略目录。
 
 `events` 实现迟滞与帧计数状态机，`Probability` 和 `Direction` 必须关联同一帧，候选分配 ID，END 保留 ID，IDLE 为零。默认状态门限是待验证的演示设置。wire 是本原型的联调提案：小端 `<BHhHQI`，19 bytes；首字节 bits 0–1=state、bit 2=horn_valid、bit 3=doa_valid，其余保留为零。Q0.16 和 Q9.7 按文档舍入/饱和。`camera` 只产生转向、抓拍、保存或不可达动作，支持反向云台、偏角和机械范围，抓拍按事件去重；模拟器记录转向到位后的曝光时间。实际设备通信和时钟同步需硬件联调。
+
+`fixed` 提供半整数远离零舍入、饱和、完整中间乘积、整数 radix-2 FFT/IFFT、10-bit-address 倒数 LUT、近似模长 PHAT、PSD 更新、三个频率因子、Mel/log LUT、整数/分数延迟及 SRP。参考配置 FFT 每级右移 1 bit，前向总缩放 1/N，IFFT 总缩放 1/N，FFT/GCC 为 signed Q9.15（24 bits），PHAT 为 Q1.15，交叉谱保留 signed 49-bit/Q19.30 中间量，功率保留 unsigned 48-bit 中间量，融合后 POWER 为 unsigned Q10.30（40 bits）；实际噪声同功率尺度。28 对累加保留至少 5 增长位。log 下限设为一个 POWER code（2^-30），这是需要量化验证的工程选择。导出 `.npz`、逐行十六进制 `.mem` 与配置/缩放/饱和 JSON；输入是已校准的一帧。FFT IP 的级间算法不同会产生不同编码，联调必须匹配本配置或据 IP 重建参考。CNN 的 `quantize_model` 仅提供对称权重量化误差对照，不是 PL 整数推理内核。
