@@ -20,6 +20,12 @@ horn-det/
 │   ├── 11_无法自采数据时的数据方案.md
 │   ├── 12_实验设计与评价指标.md
 │   └── 13_文献来源映射与复现边界.md
+├── prototype/
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── README.md
+│   ├── src/horn/
+│   └── tests/
 └── references/
     ├── README.md
     ├── references.bib

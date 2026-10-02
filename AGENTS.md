@@ -2,16 +2,17 @@
 
 ## Project Structure & Module Organization
 
-This repository documents FPGA vehicle-horn detection and direction estimation; source, tests, and runtime assets are not present.
+This repository documents FPGA vehicle-horn detection and direction estimation and contains a Python reference prototype.
 
 - `README.md`: project overview and processing pipeline.
 - `PROJECT_TREE.md`: repository layout.
 - `docs/`: thirteen numbered technical chapters covering acoustics, STFT, GCC/SRP-PHAT, Tiny CNN detection, FPGA implementation, camera control, datasets, and evaluation. `docs/README.md` indexes them.
 - `references/`: bibliography (`references.bib`), source descriptions, and `.url` download shortcuts; these are not bundled PDFs.
+- `prototype/`: uv-managed Python source and tests. Read `prototype/README.md` when implementing, running, or evaluating algorithms; its coverage table records implementation status and evidence boundaries.
 
 ## Build, Test, and Development Commands
 
-No build system, application launcher, test runner, formatter, or linter is configured. Useful read-only checks from the repository root:
+Run `uv sync` and `uv run pytest` from `prototype/`; model tests require `uv sync --extra learning`. Useful read-only checks from the repository root:
 
 ```powershell
 rg --files                 # List repository files.
@@ -30,13 +31,13 @@ Use clear, complete-word identifiers, preferably at most two words. Write code c
 
 ## Testing Guidelines
 
-No automated testing framework, test naming convention, or coverage threshold exists. For documentation changes, verify equations, units, links, and consistency across chapters.
+Prototype tests use pytest in `prototype/tests/`. Verify signed delays, causal streaming, finite-frame boundaries, dataset grouping, event matching and fixed-point saturation against independent or analytic cases. Before each stage commit, check chapter consistency and run the relevant tests plus the existing suite. For documentation changes, verify equations, units, links, and consistency across chapters.
 
 For future algorithm validation, follow `docs/12_实验设计与评价指标.md`: compare GCC-PHAT, SRP-PHAT, and Horn-aware SRP on matched samples. Report angular errors, detection precision/recall/F1, false positives per hour, latency, and FPGA resources. Distinguish simulation from deployment evidence.
 
 ## Commit & Pull Request Guidelines
 
-The repository has no commits, so no historical message convention exists. Use concise imperative subjects, for example `docs: clarify camera timestamp units`. PRs should explain scope, affected chapters, validation, and relevant issues; include rendered screenshots when layout changes matter.
+Use concise imperative subjects such as `feat: add signed array geometry` or `docs: clarify camera timestamp units`. PRs should explain scope, affected chapters, validation, and relevant issues; include rendered screenshots when layout changes matter.
 
 ## Sources & Agent Instructions
 
