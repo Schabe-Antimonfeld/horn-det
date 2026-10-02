@@ -12,7 +12,7 @@
 | GCC、SRP、搜索 | 04、05、06 | 已实现，累计 39 项测试通过 |
 | Horn-aware 权重 | 08 | 已实现，累计 42 项测试通过 |
 | 检测、训练和候选 | 07 | 已实现，累计 54 项测试通过；候选选型待确定 |
-| 事件与相机接口 | 10 | 待实现 |
+| 事件与相机接口 | 10 | 已实现，累计 59 项测试通过 |
 | 定点和对拍导出 | 09 | 待实现 |
 | 流水线及评价 | 01、12 | 待实现 |
 
@@ -31,3 +31,5 @@
 数据 manifest 使用 JSONL，路径相对 manifest：`{"path":"audio.wav","group":"event-001","event":"event-001","origin":"recording-001","split":"train","label":1,"intervals":[[0.2,0.5]],"channel":0}`。split 可为 train/validation/test/unassigned；先划分关联的 group/event/origin，再切窗。正例必须提供穷尽的鸣笛区间，重叠不足 20 ms 的边缘窗口跳过，具体阈值待验证；负例无区间。不同手机录音仍使用相同事件标识。元数据缺失时不得声称无泄漏，不能仅凭文件名推测事件关系。公开数据许可由使用方在导入前核查。
 
 迁移候选采用独立实现的 PANNs Cnn6 兼容编码器（[R8](../docs/13_文献来源映射与复现边界.md)），支持冻结及末层微调。真实权重来自 [Zenodo 3987831](https://zenodo.org/records/3987831)，文件 `Cnn6_mAP=0.343.pth`，23,698,321 bytes，MD5 `e25e26b84585b14c7754c91e48efc9be`，记录许可 CC BY 4.0。已核对上游 `pytorch/models.py` 的 commit `d2f4b8c18eab44737fcc0de1248ae21eb43f6aa4`；不执行上游代码。前端使用 32 kHz、periodic Hann、1024 FFT、320 hop、reflect center、权重内置的 64-bin Mel 矩阵和 dB 压缩，并与权重内置 STFT 卷积核对拍。短窗适配只使用已完成的历史窗口，仍需重新训练鸣笛头并测量冷启动；不等同于共享 STFT 的主线，也不默认满足部署资源。离线分类数据固定选单通道，权重放在忽略目录。
+
+`events` 实现迟滞与帧计数状态机，`Probability` 和 `Direction` 必须关联同一帧，候选分配 ID，END 保留 ID，IDLE 为零。默认状态门限是待验证的演示设置。wire 是本原型的联调提案：小端 `<BHhHQI`，19 bytes；首字节 bits 0–1=state、bit 2=horn_valid、bit 3=doa_valid，其余保留为零。Q0.16 和 Q9.7 按文档舍入/饱和。`camera` 只产生转向、抓拍、保存或不可达动作，支持反向云台、偏角和机械范围，抓拍按事件去重；模拟器记录转向到位后的曝光时间。实际设备通信和时钟同步需硬件联调。
