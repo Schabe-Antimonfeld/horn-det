@@ -1,6 +1,6 @@
-# PYNQ-Z2 14 路 PDM 采集首版
+# PYNQ-Z2 14 路采集与 Tiny CNN 推理
 
-目标为 Vivado 2019.2、`xc7z020clg400-1`、14 颗 IM72D128V01 和直径 240 mm 的圆阵。实现范围是 PDM 接收、抽取成 PCM16、分包、跨时钟 FIFO 和 AXI DMA 写入 PS DDR。FFT、SRP、鸣笛分类与相机控制继续使用现有参考流程。
+目标为 Vivado 2019.2、`xc7z020clg400-1`、14 颗 IM72D128V01 和直径 240 mm 的圆阵。基础工程实现 PDM 接收、抽取成 PCM16、分包、跨时钟 FIFO 和 AXI DMA 写入 PS DDR。第 9 节的扩展工程增加完整 Tiny CNN 整数推理；FFT、Log-Mel、SRP、事件状态与相机控制继续使用现有参考流程。
 
 RTL 已通过 Icarus 功能仿真；本机没有 Vivado，尚未验证 IP 参数接受、综合资源、布线、厂商原语时序或板上波形。既有 DATA 逻辑电平兼容、时钟负载和双麦交接风险仍需硬件方关闭。代码与引脚数量相符不等于阵列板已可直接连接。
 
@@ -233,3 +233,60 @@ GPIO 状态：bit 0 为音频域同步后的 enable；bit 1 为启动屏蔽结�
 先验证电平、时钟、全通道 PDM 与 48 kHz PCM，再运行 DMA 长录音及 USB 并发压力测试。保存无丢包证据、计数连续性、频响/噪声、通道增益/相位/延迟标定。时间戳需建立 PCM 计数与 PS/相机时钟的关系，不能直接使用收包时刻。以上全部通过前，不将功能仿真结果描述为已验证的板上采集性能。
 
 器件与接口依据：[Infineon IM72D128V01](https://www.infineon.com/assets/row/public/documents/24/49/infineon-im72d128-datasheet-en.pdf)、[AMD 7 系列 IDDR](https://docs.amd.com/r/2019.2-English/ug953-vivado-7series-libraries/IDDR)、[AMD AXI DMA PG021](https://docs.amd.com/r/en-US/pg021_axi_dma)、[项目 FPGA 章节](../docs/09_FPGA模块划分与定点实现.md)。
+
+## 9. Tiny CNN 完整推理扩展
+
+完整网络、训练与数据要求、定点定义和 DMA 协议见 [第 07 章](../docs/07_鸣笛检测_LogMel_TinyCNN.md)。本扩展只对应已有 `TinyCNN-1834` 基线：40×24 Log-Mel → 3×3 卷积 → 两组 depthwise/pointwise → 全局均值 → 两类全连接 → 概率。共 1,834 个参数；不能直接替换成 CRNN、其他预训练网络或 40×32 输入。
+
+| 文件 | 用途 |
+|---|---|
+| `cnn.py` | 校准、INT8 权重导出、INT16/INT48 整数参考、完整性检查、RTL 对拍和整数窗口评测 |
+| `rtl/tiny_cnn.v` | 8 路复用乘加、所有网络层、舍入/饱和、概率 LUT 和 AXIS 输入输出 |
+| `sim/tb_cnn.sv` | 整数逐位对照、随机背压、错误包及复位恢复 |
+| `scripts/build_cnn.tcl` | 在采集工程上增加独立双向 CNN DMA，保存模型快照并创建/综合/实现 |
+| `cnn_host.py` | 仅依赖板端 PYNQ/NumPy 的 DMA 客户端和特征回放命令 |
+| `../prototype/tests/test_cnn_fpga.py` | 独立卷积/舍入检查、导出一致性、模拟 DMA 和 RTL 极值测试 |
+
+### 9.1 本机导出与验证
+
+在仓库根目录，使用已有 prototype 环境，不新增依赖。仅验证数据通路时执行：
+
+```powershell
+& .\prototype\.venv\Scripts\python.exe -B fpga/cnn.py demo --output prototype/outputs/cnn_demo --vectors 4
+& .\prototype\.venv\Scripts\python.exe -B fpga/cnn.py check --model-dir prototype/outputs/cnn_demo
+& .\prototype\.venv\Scripts\python.exe -B fpga/cnn.py verify --model-dir prototype/outputs/cnn_demo
+```
+
+`demo` 是随机未训练权重和合成特征，不具备已验证的鸣笛识别能力。正式训练及 `export/evaluate` 命令见第 07 章 5.1；校准只允许 train/validation。先用整数模型验证集冻结阈值，再执行 test。生成的 `.mem`、`features.npy`、`manifest.json` 和仿真产物留在已忽略的 `prototype/outputs/`，不提交数据或权重。
+
+`verify` 需要已安装的 `iverilog`、`vvp`，逐位比较 logits、概率、模型标识和饱和标志。测试还覆盖零填充、角点、深度卷积、逐点卷积、正负极值、错误 TKEEP/符号扩展、提前/缺失 TLAST、背压及中途复位。现有环境的完整测试从 `prototype/` 执行 `uv run --extra learning pytest`。
+
+功能仿真测得每窗计算 445,512 周期，若能满足 100 MHz 时序则约 4.45512 ms；不含主机前端、DMA 和输出停顿。两份特征 RAM 分配 128 KiB，按常见 BRAM36 组织约 32 块；这只是特征缓存估算，不能替代整个工程的资源报告。本机未运行 Vivado，尚无综合、布线或板上性能证据。
+
+### 9.2 创建包含 CNN 的工程
+
+沿用第 6 节的 Vivado 2019.2、board files 和硬件接口要求。在运行 Vivado 的同一 PowerShell 设置 `CNN_PYTHON`，指向已安装 NumPy 的 prototype 解释器，用于构建前检查导出文件。以下 `cnn_demo` 仅示范构建流程，正式模型需替换目录：
+
+```powershell
+$env:CNN_PYTHON = 'D:/SpecialEffects/components/horn-det/prototype/.venv/Scripts/python.exe'
+vivado -mode batch -source D:/SpecialEffects/components/horn-det/fpga/scripts/build_cnn.tcl -tclargs D:/SpecialEffects/components/horn-det/prototype/outputs/cnn_demo D:/fpga_build/horn_cnn_create D:/board_files create
+vivado -mode batch -source D:/SpecialEffects/components/horn-det/fpga/scripts/build_cnn.tcl -tclargs D:/SpecialEffects/components/horn-det/prototype/outputs/cnn_demo D:/fpga_build/horn_cnn_synth D:/board_files synth
+```
+
+每次选新的输出目录。脚本调用基础采集工程，再添加 CNN，工程文件仍名为 `horn_capture.xpr`。`audio_dma` 与 `cnn_dma` 共用 PS HP0，CNN 使用 100 MHz 系统时钟。模型内存和 manifest 复制到构建目录的 `model/`；ROM 权重固定在 bitstream 中，更新权重必须重新构建。
+
+设置第 6 节所述、经硬件方确认的 `PDM_INPUT_MIN_NS/PDM_INPUT_MAX_NS` 后，可用另一个新目录将模式改为 `bit`。不要为绕过检查编造延迟值。脚本生成 `horn_cnn.bit`、`horn_cnn.hwh` 和 `cnn_*.rpt`，拒绝负 slack；仍需人工检查资源、未约束路径、CDC、DRC 及实际硬件接口。Tcl 模拟检查只验证脚本流程，不证明 Vivado 接受全部 IP 参数或 RAM/DSP 映射。
+
+### 9.3 板端特征回放与联调
+
+先将同一次构建的 `horn_cnn.bit`、`horn_cnn.hwh`（同目录同基名）、构建快照中的 `manifest.json`、对应导出的 `features.npy` 以及本仓库的 `cnn_host.py` 复制到板端，例如 `/home/xilinx/cnn/`。使用板端已有 Python/PYNQ 环境执行：
+
+```bash
+python3 /home/xilinx/cnn/cnn_host.py --overlay /home/xilinx/cnn/horn_cnn.bit --manifest /home/xilinx/cnn/manifest.json --features /home/xilinx/cnn/features.npy --output /home/xilinx/cnn/results.json
+```
+
+该命令重新下载 overlay，先接收结果再发送每个特征窗；不会启用音频采集。将输出与导出目录 `expected.mem` 的 logits、Q0.16 概率、标志和模型标识比较；计算周期另行检查。模型标识不匹配、DMA 超时或协议错误均报错，出错后重新下载完整 overlay；仅 reset DMA 不会清除 CNN 内部状态。清理时先复位 DMA 再释放缓冲区，复位超时保留缓冲区。
+
+实时路径需由 PS/PC 持续执行与训练相同的 PCM 归一化、去 DC、STFT、功率融合和 Log-Mel，积累 24 帧后送入 CNN。输入不接受原始音频或逐麦特征；顺序、尺度、前端滤波差异和丢包重置规则均见第 07 章。`CnnDevice.infer(features, frame=...)` 可保留声学帧号；`probability(batch)` 接受 `N×1×40×24`，可作为参考 `Detector` 的模型接口，但帧号和时间戳仍由上层维护。
+
+板端回放客户端兼容 Python 3.6 语法，仅用 PYNQ/NumPy；整个 prototype 使用 Python 3.12 和其他既有依赖，不能假定旧 PYNQ 镜像能直接运行。ARM 前端、双 DMA、连续录音、USB 相机共存的吞吐与延迟仍待板上测试。分类正确也不证明某个 DOA 峰属于鸣笛，声源归属未验证时仍不启用正式抓拍。
