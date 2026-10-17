@@ -37,6 +37,15 @@ horn-det/
 │   ├── sim/
 │   ├── scripts/
 │   └── constraints/
+├── deployment/pynq_z2/
+│   ├── README.md
+│   ├── HANDOFF.md
+│   ├── run.py
+│   ├── config/
+│   ├── ps/
+│   ├── rtl/
+│   ├── scripts/
+│   └── tests/
 └── references/
     ├── README.md
     ├── references.bib

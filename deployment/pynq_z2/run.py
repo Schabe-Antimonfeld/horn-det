@@ -3,6 +3,7 @@
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import time
 import wave
@@ -56,19 +57,24 @@ def main(argv=None):
     parser.add_argument('--model')
     parser.add_argument('--replay')
     parser.add_argument('--output')
+    parser.add_argument('--output-root')
     parser.add_argument('--limit', type=int, default=0)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args(argv)
     config = load_config(args.config)
     if args.replay and config['vision']['enabled']:
         raise ValueError('Historical audio cannot be matched to live camera images; disable vision for WAV replay')
-    directory = resolve(args.model or config['detector']['model_directory'])
+    directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = check_export(directory)
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'board_runtime': 'requires PYNQ/NumPy; hardware not checked',
                           'vision_enabled': config['vision']['enabled']}))
         return 0
+    if args.output and args.output_root:
+        raise ValueError('Choose --output or --output-root, not both')
+    if args.output_root:
+        args.output = str(Path(args.output_root) / (time.strftime('%Y%m%dT%H%M%S', time.gmtime()) + '-' + str(os.getpid())))
     if not args.output:
         raise ValueError('Choose a fresh --output directory')
     output = Path(args.output)

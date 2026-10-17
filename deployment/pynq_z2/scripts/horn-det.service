@@ -1,0 +1,19 @@
+[Unit]
+Description=PYNQ horn detection research service
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/home/xilinx/horn-det/firmware/horn_cnn.bit
+ConditionPathExists=/home/xilinx/horn-det/model/manifest.json
+
+[Service]
+Type=simple
+WorkingDirectory=/home/xilinx/horn-det
+ExecStart=/usr/bin/python3 /home/xilinx/horn-det/run.py --output-root /home/xilinx/horn-events
+KillSignal=SIGINT
+TimeoutStopSec=30
+SendSIGKILL=no
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

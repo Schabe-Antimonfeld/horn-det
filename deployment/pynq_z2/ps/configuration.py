@@ -53,8 +53,26 @@ def validate_config(config):
         raise ValueError('Deployment requires spatial association; no azimuth-only fallback')
     if config['vision']['enabled'] and not config['camera']['sources']:
         raise ValueError('Vision requires configured cameras')
+    identities = [source['id'] for source in camera['sources']]
+    allowed = {'ring-' + str(index) for index in range(camera['count'])} | {'down'}
+    if len(set(identities)) != len(identities) or set(identities) - allowed:
+        raise ValueError('Camera sources must reference distinct configured camera IDs')
+    if config['hardware']['timeout'] <= 0:
+        raise ValueError('Hardware timeout must be positive')
+    for key in ('gains', 'delays'):
+        values = audio.get(key)
+        if values is not None and (len(values) != 14 or not all(math.isfinite(value) for value in values)
+                                   or (key == 'gains' and min(values) <= 0)):
+            raise ValueError('Calibration needs 14 finite gains/delays and positive gains')
     if config['vision']['output'] != 'yolo_xywh_classes':
         raise ValueError('Only explicitly described YOLO decoded outputs are supported')
+    if config['vision']['input_size'] <= 0 or not all(0 <= config['vision'][key] <= 1 for key in ('threshold', 'nms')):
+        raise ValueError('Invalid vision dimensions or gates')
+    from ps.geometry import Association, Rig
+    geometry = dict(camera)
+    geometry.pop('sources')
+    Rig(**geometry)
+    Association(**config['association'])
     for section in config.values():
         if isinstance(section, dict):
             for value in section.values():

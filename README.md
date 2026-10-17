@@ -27,4 +27,6 @@ Camera pan/capture
 
 当前关联默认验证声源俯角及鸣笛候选的 SRP 支持，缺证据拒绝、宽峰保留歧义；只看水平角保留为对照。默认仿真结果在本地 `prototype/outputs/surround_v2/`，固定小样本对照摘要见[第 12 章](docs/12_实验设计与评价指标.md)。真实音频、已训练权重和生成报告被忽略，不随 Git 仓库发布。
 
-已有[14路PDM采集及Tiny CNN整数推理RTL](fpga/README.md)，通过本地功能仿真；PANNs和多相机关联仍运行于PC原型，不能使用Tiny CNN内核直接部署。Vivado综合、时序和实际板上闭环尚待验收。
+已有[14路PDM采集及Tiny CNN整数推理RTL](fpga/README.md)，通过本地功能仿真；PANNs研究模型在PC运行，Tiny CNN内核不支持直接部署PANNs。PS多相机源码见下方独立部署目录；Vivado综合、时序和实际板上闭环尚待验收。
+
+新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选相机适配，含独立打包和校验。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。

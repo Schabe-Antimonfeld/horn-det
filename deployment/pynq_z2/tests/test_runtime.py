@@ -19,7 +19,10 @@ def test_default_contract():
 
 @pytest.mark.parametrize('section,key,value', [('audio', 'channels', 8), ('audio', 'window_samples', 48000),
                                                ('search', 'azimuth_step', 7), ('camera', 'height', 0),
-                                               ('association', 'method', 'azimuth')])
+                                               ('association', 'method', 'azimuth'),
+                                               ('audio', 'gains', [1] * 13),
+                                               ('camera', 'sources', [{'id': 'unknown', 'uri': 'http://camera'}]),
+                                               ('hardware', 'timeout', -1)])
 def test_contract_rejects_incompatible_settings(section, key, value):
     config = copy.deepcopy(load_config())
     config[section][key] = value

@@ -18,7 +18,7 @@ if {$cnn_mode eq "bit"} {
         $::env(PDM_INPUT_MAX_NS) >= 156.25} {error "Invalid PDM interface delay bounds"}
 }
 set cnn_python [expr {[info exists ::env(CNN_PYTHON)] ? $::env(CNN_PYTHON) : "python"}]
-if {[catch {exec $cnn_python [file join $cnn_root cnn.py] check --model-dir $cnn_model} message]} {
+if {[catch {exec $cnn_python -E [file join $cnn_root cnn.py] check --model-dir $cnn_model} message]} {
     error "Model validation failed; set CNN_PYTHON to the prototype interpreter if necessary: $message"
 }
 set saved_arguments $argv

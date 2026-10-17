@@ -31,3 +31,14 @@ def test_complete_service_replays_silence_with_real_model(tmp_path):
     assert json.loads((output / 'health.json').read_text())['status'] == 'completed'
     with pytest.raises(ValueError, match='empty'):
         service.main(['--model', str(model), '--replay', str(audio), '--output', str(output)])
+
+
+def test_cli_model_path_is_relative_to_working_directory(monkeypatch):
+    model = ROOT.parents[1] / 'prototype/outputs/horn_detector_v1/fpga_model'
+    if not model.is_dir():
+        pytest.skip('Local trained weights are not available')
+    specification = importlib.util.spec_from_file_location('board_check', ROOT / 'run.py')
+    service = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(service)
+    monkeypatch.chdir(ROOT.parents[1])
+    assert service.main(['--model', 'prototype/outputs/horn_detector_v1/fpga_model', '--check']) == 0
