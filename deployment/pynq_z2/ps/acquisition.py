@@ -168,7 +168,8 @@ class CapturePump:
 
     def close(self):
         self.stop.set()
-        self.thread.join(timeout=self.device.timeout + 1)
+        if self.thread.ident is not None:
+            self.thread.join(timeout=self.device.timeout + 1)
         if self.thread.is_alive():
             raise RuntimeError('Capture worker still owns DMA buffers')
         self.device.close()
