@@ -34,10 +34,10 @@ class PacketDecoder:
 
 
 class WindowBuffer:
-    def __init__(self, settings):
+    def __init__(self, settings, dtype=np.int16):
         self.capacity = settings['window_samples']
         self.update = settings['update_samples']
-        self.memory = np.zeros((self.capacity, settings['channels']), dtype=np.int16)
+        self.memory = np.zeros((self.capacity, settings['channels']), dtype=dtype)
         self.reset()
         self.epoch = 0
 
@@ -123,8 +123,9 @@ class CaptureDevice:
 class CapturePump:
     """Keep acquisition independent of inference; only discard stale analysis snapshots."""
 
-    def __init__(self, device, settings):
-        self.device, self.history = device, WindowBuffer(settings)
+    def __init__(self, device, settings, conditioning=None):
+        self.conditioning = conditioning
+        self.device, self.history = device, WindowBuffer(settings, np.float64 if conditioning else np.int16)
         self.pending = queue.Queue(maxsize=1)
         self.stop = threading.Event()
         self.error = None
@@ -136,6 +137,10 @@ class CapturePump:
             while not self.stop.is_set():
                 packet = self.device.receive()
                 self.gaps += int(packet['gap'])
+                if self.conditioning is not None:
+                    if packet['gap']:
+                        self.conditioning.reset()
+                    packet['audio'] = self.conditioning.feed(packet['audio'])
                 snapshot = self.history.feed(packet)
                 if snapshot is not None:
                     try:
