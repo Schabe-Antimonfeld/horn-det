@@ -23,6 +23,8 @@ def test_bundle_runs_without_source_checkout_and_detects_tampering(tmp_path):
     manifest = module.package(model, bundle)
     assert not manifest['firmware_included'] and not manifest['board_validated']
     assert (tmp_path / 'standalone.zip').is_file()
+    for name in ('ps/srp.py', 'rtl/srp_batch.v', 'rtl/srp_accumulator.v', 'scripts/connect_srp.tcl'):
+        assert name in manifest['files']
     result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
                             capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr

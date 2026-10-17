@@ -40,8 +40,11 @@ class Events:
 
 
 class Pipeline:
-    def __init__(self, config, detector):
+    def __init__(self, config, detector, scorer=None):
         self.config, self.detector = config, detector
+        if config['search'].get('backend', 'numpy') == 'fpga' and scorer is None:
+            raise ValueError('FPGA SRP requires an initialized DMA scorer')
+        self.scorer = scorer
         self.events = Events(config['event'], config['audio']['update_samples'])
         camera = dict(config['camera'])
         camera.pop('sources')
@@ -50,7 +53,7 @@ class Pipeline:
 
     def analyze(self, snapshot):
         started = time.monotonic()
-        grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'])
+        grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'], self.scorer)
         bearings = candidates(grid, self.config['search']['candidates'], self.config['search']['separation'])
         scores, clipped = [], []
         for bearing in bearings:
@@ -71,6 +74,7 @@ class Pipeline:
                       'depression': selected.depression if valid else None, 'scores': scores,
                       'input_clipped': snapshot['clipped'], 'activation_clipped': any(clipped),
                       'processing_seconds': time.monotonic() - started,
+                      'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
                       'classifier': 'TinyCNN-1834; thresholds and beam-domain performance require validation'})
         evidence = AcousticEvidence(selected, grid) if valid else None
         return event, evidence

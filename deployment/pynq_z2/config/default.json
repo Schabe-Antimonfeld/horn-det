@@ -1,7 +1,7 @@
 {
   "format": 1,
   "audio": {"channels": 14, "sample_rate": 48000, "packet_samples": 512, "frame": 1024, "hop": 512, "diameter": 0.24, "speed": 343.0, "window_samples": 48128, "update_samples": 24064},
-  "search": {"azimuth_step": 2, "depression_step": 3, "candidates": 2, "separation": 12, "block_directions": 128},
+  "search": {"backend": "numpy", "azimuth_step": 2, "depression_step": 3, "candidates": 2, "separation": 12, "block_directions": 128},
   "detector": {"threshold": 0.65, "margin": 0.05, "model_directory": "model", "backend": "fpga"},
   "event": {"confirm": 2, "release": 2},
   "camera": {"count": 6, "height": 6.0, "pitch": 40.0, "hfov": 90.0, "vfov": 70.0, "down_hfov": 120.0, "down_vfov": 100.0, "yaw": 0.0, "width": 1280, "image_height": 720, "minimum_range": 1.0, "maximum_range": 40.0, "horn_height": 0.8, "sources": []},

@@ -9,4 +9,5 @@ if {![file exists [file join $deploy_vendor scripts build_cnn.tcl]]} {
 if {![file exists [file join $deploy_vendor scripts build_cnn.tcl]]} {
     error "FPGA sources missing; use a complete deployment package or source checkout"
 }
+set cnn_extension [file join $deploy_root scripts connect_srp.tcl]
 source [file join $deploy_vendor scripts build_cnn.tcl]

@@ -42,3 +42,17 @@ def test_cli_model_path_is_relative_to_working_directory(monkeypatch):
     specification.loader.exec_module(service)
     monkeypatch.chdir(ROOT.parents[1])
     assert service.main(['--model', 'prototype/outputs/horn_detector_v1/fpga_model', '--check']) == 0
+
+
+def test_replay_rejects_fpga_srp_before_creating_output(tmp_path):
+    from ps.configuration import load_config
+    specification = importlib.util.spec_from_file_location('board_srp_service', ROOT / 'run.py')
+    service = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(service)
+    config = load_config()
+    config['search']['backend'] = 'fpga'
+    path = tmp_path / 'config.json'
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='NumPy SRP'):
+        service.main(['--config', str(path), '--replay', 'absent.wav', '--output', str(tmp_path / 'out')])
+    assert not (tmp_path / 'out').exists()

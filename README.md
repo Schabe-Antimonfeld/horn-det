@@ -29,4 +29,4 @@ Camera pan/capture
 
 已有[14路PDM采集及Tiny CNN整数推理RTL](fpga/README.md)，通过本地功能仿真；PANNs研究模型在PC运行，Tiny CNN内核不支持直接部署PANNs。PS多相机源码见下方独立部署目录；Vivado综合、时序和实际板上闭环尚待验收。
 
-新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选相机适配，含独立打包和校验。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。
+新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选相机适配，含独立打包和校验；可选批量SRP插值累加已接入部署构建和Python DMA后端，默认保持NumPy，收益待板上测试。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。

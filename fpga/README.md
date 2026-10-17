@@ -2,6 +2,8 @@
 
 目标为 Vivado 2019.2、`xc7z020clg400-1`、14 颗 IM72D128V01 和直径 240 mm 的圆阵。基础工程实现 PDM 接收、抽取成 PCM16、分包、跨时钟 FIFO 和 AXI DMA 写入 PS DDR。第 9 节的扩展工程增加完整 Tiny CNN 整数推理；FFT、Log-Mel、SRP、事件状态与相机控制继续使用现有参考流程。
 
+独立部署的[构建入口](../deployment/pynq_z2/scripts/build.tcl)进一步加入批量SRP插值累加核及srp_dma，Python可选调用；直接使用本目录build_cnn.tcl时仍为采集/CNN工程。FFT/PHAT/GCC及延时查表保持PS计算，默认SRP累加也保持NumPy；SRP后端协议、量化误差及板上验收见[部署说明](../deployment/pynq_z2/README.md)。
+
 RTL已通过Icarus功能仿真。2026-10-17已启动本机Vivado2019.2，但安装缺少XC7Z020器件支持和PYNQ-Z2板卡定义，创建目标工程失败，尚未验证IP参数接受、综合资源、布线、原语时序或板上波形。阻塞证据与后续步骤见[独立部署交接](../deployment/pynq_z2/HANDOFF.md)。DATA电平、时钟负载和双麦交接仍需硬件方验证，代码与引脚数量相符不代表可直接连接。
 
 ## 1. 文件与处理结构

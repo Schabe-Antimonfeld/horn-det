@@ -66,7 +66,7 @@ def frames(audio, frame=1024, hop=512):
                                           strides=(hop * audio.strides[0], audio.strides[1], audio.strides[0]), writeable=False)
 
 
-def spatial_map(audio, audio_settings, search):
+def spatial_map(audio, audio_settings, search, scorer=None):
     from ps.geometry import direction_vectors
     values = frames(audio)
     pairs = np.asarray([(first, second) for first in range(audio.shape[1]) for second in range(first + 1, audio.shape[1])])
@@ -84,13 +84,15 @@ def spatial_map(audio, audio_settings, search):
     baselines = array[pairs[:, 1]] - array[pairs[:, 0]]
     response = np.empty(len(vectors))
     rows = np.arange(len(pairs))[:, None]
-    block = search['block_directions']
+    block = min(search['block_directions'], 128) if scorer is not None else search['block_directions']
     for start in range(0, len(vectors), block):
         delays = baselines @ vectors[start:start + block].T * audio_settings['sample_rate'] / audio_settings['speed']
         lower = np.floor(delays).astype(int)
         fraction = delays - lower
-        response[start:start + block] = ((1 - fraction) * correlations[rows, lower % 1024]
-                                        + fraction * correlations[rows, (lower + 1) % 1024]).sum(axis=0)
+        first = correlations[rows, lower % 1024]
+        second = correlations[rows, (lower + 1) % 1024]
+        response[start:start + block] = (scorer.score(first, second, fraction) if scorer is not None
+                                        else ((1 - fraction) * first + fraction * second).sum(axis=0))
     return azimuths, depressions, response.reshape(azimuth.shape)
 
 

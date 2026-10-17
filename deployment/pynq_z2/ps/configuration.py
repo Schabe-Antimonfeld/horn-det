@@ -28,6 +28,8 @@ def validate_config(config):
     if not 0 < audio['diameter'] <= 1 or audio['speed'] <= 0:
         raise ValueError('Invalid array geometry')
     search = config['search']
+    if search.get('backend', 'numpy') not in ('numpy', 'fpga'):
+        raise ValueError('Unsupported SRP backend')
     for span, key in ((360, 'azimuth_step'), (90, 'depression_step')):
         step = search[key]
         if not math.isfinite(step) or step <= 0 or abs(span / step - round(span / step)) > 1e-9:

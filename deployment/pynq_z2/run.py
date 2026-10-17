@@ -16,6 +16,7 @@ from ps.detector import Detector
 from ps.dsp import Conditioning
 from ps.integer_kernel import check_export
 from ps.pipeline import Pipeline
+from ps.srp import SrpDevice
 from ps.vision import CameraCache, Vision
 
 
@@ -64,11 +65,14 @@ def main(argv=None):
     config = load_config(args.config)
     if args.replay and config['vision']['enabled']:
         raise ValueError('Historical audio cannot be matched to live camera images; disable vision for WAV replay')
+    if args.replay and config['search'].get('backend', 'numpy') == 'fpga':
+        raise ValueError('WAV replay requires the NumPy SRP backend')
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = check_export(directory)
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'board_runtime': 'requires PYNQ/NumPy; hardware not checked',
+                          'srp_backend': config['search'].get('backend', 'numpy'),
                           'vision_enabled': config['vision']['enabled']}))
         return 0
     if args.output and args.output_root:
@@ -82,7 +86,7 @@ def main(argv=None):
         raise ValueError('Output directory must be empty to preserve previous event evidence')
     output.mkdir(parents=True, exist_ok=True)
     (output / 'configuration.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
-    pump = device = camera_cache = capture = None
+    pump = device = camera_cache = capture = scorer = None
     processed, status = 0, 'starting'
     try:
         conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
@@ -99,6 +103,8 @@ def main(argv=None):
             overlay = Overlay(str(bitstream))
             device = cnn_client()(overlay, metadata, allocate, config['hardware']['timeout'])
             detector = Detector(directory, device)
+            if config['search'].get('backend', 'numpy') == 'fpga':
+                scorer = SrpDevice(overlay, allocate, config['hardware']['timeout'])
             capture = CaptureDevice(overlay, allocate, config['audio'], config['hardware']['timeout'])
             pump = CapturePump(capture, config['audio'], conditioning)
             pump.thread.start()
@@ -115,7 +121,7 @@ def main(argv=None):
             vision = Vision(settings)
             camera_cache = CameraCache(config['camera']['sources'], vision)
             camera_cache.start()
-        pipeline = Pipeline(config, detector)
+        pipeline = Pipeline(config, detector, scorer)
         clock_origin, clock_epoch = None, None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:
@@ -148,7 +154,7 @@ def main(argv=None):
         raise
     finally:
         failures = []
-        for resource in (camera_cache, pump if pump is not None else capture, device):
+        for resource in (camera_cache, pump if pump is not None else capture, scorer, device):
             if resource is not None:
                 try:
                     resource.close()

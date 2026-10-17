@@ -61,6 +61,7 @@ foreach pin {inference/resetn cnn_dma/axi_resetn} {
 foreach pin {control_bus/M02_ARESETN memory_bus/S01_ARESETN memory_bus/S02_ARESETN} {
     connect_bd_net [get_bd_pins reset_system/interconnect_aresetn] [get_bd_pins $pin]
 }
+if {[info exists cnn_extension]} {source $cnn_extension}
 assign_bd_address
 validate_bd_design
 save_bd_design

@@ -19,6 +19,7 @@ def test_default_contract():
 
 @pytest.mark.parametrize('section,key,value', [('audio', 'channels', 8), ('audio', 'window_samples', 48000),
                                                ('search', 'azimuth_step', 7), ('camera', 'height', 0),
+                                               ('search', 'backend', 'unknown'),
                                                ('association', 'method', 'azimuth'),
                                                ('audio', 'gains', [1] * 13),
                                                ('camera', 'sources', [{'id': 'unknown', 'uri': 'http://camera'}]),
