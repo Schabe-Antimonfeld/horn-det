@@ -26,10 +26,21 @@ horn-det/
 │   ├── uv.lock
 │   ├── README.md
 │   ├── main.py
+│   ├── simulate_surround.py
 │   ├── src/horn/
 │   └── tests/
+├── fpga/
+│   ├── README.md
+│   ├── cnn.py
+│   ├── cnn_host.py
+│   ├── rtl/
+│   ├── sim/
+│   ├── scripts/
+│   └── constraints/
 └── references/
     ├── README.md
     ├── references.bib
     └── *.url
 ```
+
+`prototype/src/horn/surround.py` 为多相机几何及声画关联原型，`prototype/tests/test_surround.py` 包含解析测试。`prototype/outputs/surround_v2/` 为当前被忽略的本地仿真产物目录，保存配置、覆盖扫描、逐场景结果及合成框标注SVG；v1保留旧结果。产物不包含真实照片或重新训练的模型。

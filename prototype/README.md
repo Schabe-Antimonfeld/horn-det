@@ -106,6 +106,30 @@ uv run --extra learning python main.py run --input data/stereo.wav --model weigh
 
 流式校准使用因果 65-tap sinc，多 32 sample 滤波延迟；有通道误差时再加公共补偿延迟，均记录在运行报告。训练提取与在线前端均使用同一因果去直流滤波，已验证带 DC 偏置时 MFCC/Log-Mel/PCEN 的特征一致。结果包括逐帧 JSONL、wire binary、事件、相机模拟曝光和统计 JSON。模拟抓拍锁定请求时的角度，等待曝光期间不被后续转向改写，多个事件按独立目标排队；这个调度策略尚需实际相机联调。无模型时只能产生候选，不能确认鸣笛；普通双声道用 detect 模式，不能作为已知几何的阵列定位数据。
 
+## 可调环形多相机与下视相机原型
+
+`src/horn/surround.py` 提供理想针孔投影、地面求交、覆盖采样、多相机路由、360°高位来声 SRP、候选波束、冻结 PANNs 接入，以及带曝光时间和视觉速度的车辆关联。原有 `camera.py` 单云台策略、Config 默认值及 19-byte wire 保持兼容。详细公式和参数见[第 10 章](../docs/10_相机控制接口.md)。
+
+在仓库根目录使用现有环境运行：
+
+```powershell
+.\prototype\.venv\Scripts\python.exe -B prototype/simulate_surround.py --output prototype/outputs/surround_v2
+.\prototype\.venv\Scripts\python.exe -B prototype/simulate_surround.py --geometry-only --cameras 8 --height 8 --pitch 45 --hfov 90 --vfov 70 --output prototype/outputs/surround_custom
+.\prototype\.venv\Scripts\python.exe -B -m pytest prototype/tests/test_surround.py -q -p no:cacheprovider
+```
+
+或在本目录执行 `uv run --extra learning python simulate_surround.py ...`。`--help` 列出 n、高度、俯角、视场、朝向、分辨率、喇叭高度及监控距离参数。`--profile` 的 rig/camera_overrides/acoustics 格式见第 10 章；命令行优先于 rig，逐相机覆盖最后应用。输入和输出路径相对命令执行目录。
+
+默认仅为演示：6＋1 相机、h=6 m、环形俯角40°、视场90°×70°、下视120°×100°、1280×720、监控1～40 m。完整声学使用14路/0.24 m/48 kHz，2°方位×3°俯角搜索，每次一秒完成窗。候选数默认2可配置；0.2分数阈值、0最小分差继承旧实验，在新场景仍待验证。没有动态候选扩展或跨块在线状态集成。
+
+完整仿真要求本地 `outputs/horn_detector_v1/panns-horn.pt`、`clips.json` 和原始音频有效；不会下载或重训，缺失则失败。这些训练权重和录音不随Git分发；新环境可先用 `--geometry-only`，它不加载PyTorch或录音，使用解析注入方向/响应检查接口。当前默认输出 `outputs/surround_v2/`，含36组覆盖扫描、176个独立关联场景、58个声学场景及三种方法对照。旧v1产物保留，不与v2配置混用。
+
+车辆图像输入是理想长方体投影得到的框和地面锚点，并可加入像素误差、框漏检、朝向标定误差。移动速度由两个模拟锚点反投影估计；未运行真实检测/跟踪模型。地面锚点不可用框中心替代。静止声学闭环与独立移动关联分开报告，不能外推实际鸣笛归属；同方向目标漏检可产生错误唯一匹配。
+
+默认 `associate` 要求 `AcousticEvidence` 包含同一音频窗的鸣笛候选俯角与SRP网格。缺证据或响应不足返回unmatched，峰过宽返回ambiguous；unique只表示当前证据兼容的单个簇，不是已证实的鸣笛身份。水平角旧行为必须显式设置 `Association(method="azimuth")`，仅用于对照。`source_unexplained=true` 表示没有兼容车辆，不能直接解释为确定漏检。全部门限可在profile的association段调整，格式见第10章，尚未实路校准。
+
+当前相机无畸变/滚转，覆盖采样不计遮挡和像素尺寸。真实检测器、完整标定、相机I/O、视频缓存、硬件同步和动态声场待完成，不能将合成SVG当作实拍。声学无法区分的同方向近邻车辆、PANNs选错波束或未建模误差仍可能导致错配，首轮小样本零错配不是一般性保证。
+
 ## 当前验证证据与交付边界
 
 完整测试包含真实 Cnn6 权重前端对拍（需先 fetch，否则该可选集成测试明确 skip），模型训练/保存/恢复、分组与事件匹配、因果流式等价和整数饱和。已执行 Tiny CNN、SVM、其他候选训练路径、迁移冻结/微调、端到端合成事件、225 个匹配样本与 1024-point golden 导出。文档本地链接、引用映射、参数、代码注释与空白检查使用 `audit`。
@@ -120,4 +144,6 @@ uv run --extra learning python main.py run --input data/stereo.wav --model weigh
 
 GCC 的较小 MAE 伴随 43 个无效结果，不能只按有效子集误差选型。当前 NumPy 实现的全网格搜索比 GCC 扇区搜索更快；减少评分次数不保证 Python 耗时下降，也不能推断 FPGA 结果。测试矩阵并未涵盖真实多径、安装误差和道路竞争声源，所有候选、门限和位宽仍待实测冻结。
 
-算法代码与运行路径已覆盖文档中的原型范围；尚未完成的外部验收是：真实 HornBase/路侧来源核查与正式训练、连续路侧误报率、声源归属验证、实际相机通信/时钟同步、FPGA RTL/IP 对拍、资源/功耗/Fmax 与板上吞吐。`fpga_resources` 保持 null，不填造数。权重量化对照不是完整整数 CNN。原型文件、锁文件和测试提交 Git；数据、模型、环境及生成报告保留本地且被忽略。
+算法代码与运行路径已覆盖文档中的参考原型范围。后续已有本地真实公开录音训练的Tiny CNN/PANNs实验，权重保留在被忽略的outputs中；这不等于来源完整独立的道路验收或生产模型。早期训练计划及上表77项测试为历史基线记录。
+
+另有[完整Tiny CNN整数参考、RTL及DMA接口](../fpga/README.md)，其Icarus逐位对拍与本目录的 `quantize_model` 权重量化误差对照是不同证据；不能继续将已有RTL描述为尚未实现。尚未完成的是全链路厂商IP/时序/板上对拍、资源/功耗/Fmax、真实道路连续误报与声源归属、实际相机通信/同步。`fpga_resources`仍为空；PC仿真和合成车辆框不替代这些验收。源码、锁文件和测试提交Git，真实数据、模型、环境及生成报告保留本地。
