@@ -1,0 +1,62 @@
+"""Validate the board contract without importing PYNQ, Torch or the PC prototype."""
+
+import json
+import math
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_config(path=None):
+    with open(str(path or ROOT / 'config/default.json'), encoding='utf-8') as stream:
+        config = json.load(stream)
+    validate_config(config)
+    return config
+
+
+def validate_config(config):
+    if config.get('format') != 1:
+        raise ValueError('Unsupported deployment configuration')
+    audio = config['audio']
+    expected = {'channels': 14, 'sample_rate': 48000, 'packet_samples': 512, 'frame': 1024, 'hop': 512}
+    if any(audio.get(key) != value for key, value in expected.items()):
+        raise ValueError('Configuration must match the fixed capture and trained frontend')
+    if audio['window_samples'] < 48000 or audio['update_samples'] <= 0 or any(
+            audio[key] % 512 for key in ('window_samples', 'update_samples')):
+        raise ValueError('Windows must contain one second and align with capture packets')
+    if not 0 < audio['diameter'] <= 1 or audio['speed'] <= 0:
+        raise ValueError('Invalid array geometry')
+    search = config['search']
+    for span, key in ((360, 'azimuth_step'), (90, 'depression_step')):
+        step = search[key]
+        if not math.isfinite(step) or step <= 0 or abs(span / step - round(span / step)) > 1e-9:
+            raise ValueError('Search steps must divide their spans')
+    if any(type(search[key]) is not int or search[key] <= 0 for key in ('candidates', 'block_directions')):
+        raise ValueError('Search sizes must be positive integers')
+    if not 0 < search['separation'] <= 180:
+        raise ValueError('Invalid candidate separation')
+    detector = config['detector']
+    if detector['backend'] not in ('fpga', 'integer') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
+        raise ValueError('Unsupported detector backend or gates')
+    if any(type(config['event'][key]) is not int or config['event'][key] <= 0 for key in ('confirm', 'release')):
+        raise ValueError('Event counters must be positive integers')
+    camera = config['camera']
+    if type(camera['count']) is not int or camera['count'] < 1 or not 0 <= camera['horn_height'] < camera['height']:
+        raise ValueError('Invalid camera count or height')
+    if not 0 <= camera['pitch'] <= 90 or not 0 <= camera['minimum_range'] < camera['maximum_range']:
+        raise ValueError('Invalid camera pitch or range')
+    for key in ('hfov', 'vfov', 'down_hfov', 'down_vfov'):
+        if not 0 < camera[key] < 179:
+            raise ValueError('Invalid field of view')
+    if config['association']['method'] != 'spatial':
+        raise ValueError('Deployment requires spatial association; no azimuth-only fallback')
+    if config['vision']['enabled'] and not config['camera']['sources']:
+        raise ValueError('Vision requires configured cameras')
+    if config['vision']['output'] != 'yolo_xywh_classes':
+        raise ValueError('Only explicitly described YOLO decoded outputs are supported')
+    for section in config.values():
+        if isinstance(section, dict):
+            for value in section.values():
+                if isinstance(value, float) and not math.isfinite(value):
+                    raise ValueError('Configuration must be finite')
