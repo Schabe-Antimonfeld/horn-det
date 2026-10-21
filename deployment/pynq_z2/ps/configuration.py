@@ -66,6 +66,11 @@ def validate_config(config):
     allowed = {'wide-0'} if camera.get('layout') == 'single' else {'ring-' + str(index) for index in range(camera['count'])} | {'down'}
     if len(set(identities)) != len(identities) or set(identities) - allowed:
         raise ValueError('Camera sources must reference distinct configured camera IDs')
+    from ps.vision import validate_source
+    for source in camera['sources']:
+        validate_source(source)
+        if camera.get('layout') == 'single' and source.get('backend') == 'usb' and (source['width'], source['height']) != (camera['width'], camera['image_height']):
+            raise ValueError('USB mode must match the camera geometry and calibration')
     if config['vision']['enabled'] and camera.get('layout') == 'single' and camera.get('calibration') is None:
         raise ValueError('Wide-angle vision requires measured lens calibration')
     if config['hardware']['timeout'] <= 0:

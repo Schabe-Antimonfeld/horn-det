@@ -88,10 +88,14 @@ class Pipeline:
             frame = cache.nearest(identity, representative_time) if cache is not None else None
             if frame is None:
                 continue
+            camera = next(item for item in self.rig.cameras() if item.identity == identity)
+            if frame['image'].shape[:2] != (camera.height, camera.width):
+                raise ValueError('Captured image dimensions disagree with camera calibration')
             boxes = vision.infer(frame['image'])
             for box in boxes:
                 left, top, right, bottom = box['box']
-                detections.append(Detection('observation-' + str(len(detections)), identity, tuple(box['box']),
+                box['identity'] = 'observation-' + str(len(detections))
+                detections.append(Detection(box['identity'], identity, tuple(box['box']),
                                             ((left + right) / 2, bottom), frame['time']))
             images.append((identity, frame, boxes))
         result = associate(self.rig, event['azimuth'], representative_time, detections,
@@ -105,4 +109,5 @@ class Pipeline:
             vision.annotate(frame['image'], boxes, result, output / (name + '-annotated.jpg'))
         if images:
             self.captured = event['event_id']
-        return {'selected_cameras': selected, 'association': result, 'photos': len(images)}
+        return {'selected_cameras': selected, 'association': result, 'photos': len(images),
+                'visibility': 'candidate_in_nominal_or_calibrated_view' if selected else 'outside_camera_view'}

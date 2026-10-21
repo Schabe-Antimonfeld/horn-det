@@ -47,7 +47,7 @@ def test_unavailable_camera_is_retried_and_successful_capture_is_deduplicated(tm
     assert pipeline.captured == 0
     class Cache:
         def nearest(self, identity, timestamp):
-            return {'image': np.zeros((10, 10, 3)), 'jpeg': b'test-only-not-a-photo', 'time': 0}
+            return {'image': np.zeros((1080, 1920, 3), dtype=np.uint8), 'jpeg': b'test-only-not-a-photo', 'time': 0}
     class Vision:
         def infer(self, image):
             return []

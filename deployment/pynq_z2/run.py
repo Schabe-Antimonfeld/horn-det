@@ -134,6 +134,7 @@ def main(argv=None):
                 event['clock_kind'] = 'replay_sample_clock' if args.replay else 'unverified_host_clock'
                 if vision is not None:
                     event['capture'] = pipeline.capture(event, evidence, camera_cache, vision, output, representative)
+                    event['camera_health'] = camera_cache.health()
                 event['skipped_windows'] = pump.skipped if pump else 0
                 event['capture_gaps'] = pump.gaps if pump else 0
                 stream.write(json.dumps(event, allow_nan=False) + '\n')
@@ -162,6 +163,7 @@ def main(argv=None):
                     failures.append(str(error))
         (output / 'health.json').write_text(json.dumps({'status': status, 'windows': processed,
                                                        'cleanup_errors': failures,
+                                                       'cameras': camera_cache.health() if camera_cache is not None else None,
                                                        'board_validated': False}), encoding='utf-8')
         if failures:
             raise RuntimeError('Cleanup incomplete: ' + '; '.join(failures))
