@@ -48,6 +48,9 @@ def validate_config(config):
     detector = config['detector']
     if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')
+    capture = detector.get('capture_threshold', detector['threshold'])
+    if isinstance(capture, bool) or not isinstance(capture, (int, float)) or not math.isfinite(capture) or not 0 <= capture <= detector['threshold']:
+        raise ValueError('Capture threshold must be finite and between zero and the direction threshold')
     if any(type(config['event'][key]) is not int or config['event'][key] <= 0 for key in ('confirm', 'release')):
         raise ValueError('Event counters must be positive integers')
     camera = config['camera']

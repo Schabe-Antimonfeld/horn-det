@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ps.configuration import load_config
@@ -132,3 +133,101 @@ def test_hypothesis_union_never_rejects_a_vehicle_supported_by_another(monkeypat
     result = pipeline.capture(event, None, None, None, tmp_path, 0)['association']
     assert result['state'] == 'ambiguous' and result['groups'] == [[dict(identity='car-a')]]
     assert result['rejected'] == [] and result['source_unexplained']
+
+
+def capture_pipeline(monkeypatch, scores, capture=0.5):
+    import ps.pipeline as module
+    grid = (np.arange(-180, 180, 2), np.arange(0, 91, 3), np.ones((180, 31)))
+    monkeypatch.setattr(module, 'spatial_map', lambda *args: grid)
+    monkeypatch.setattr(module, 'candidates', lambda *args: [Bearing(180, 20, 2), Bearing(0, 20, 1)])
+    monkeypatch.setattr(module, 'beamform', lambda *args: (np.zeros(48000), 32))
+    monkeypatch.setattr(module, 'features', lambda *args: np.zeros((7, 40, 24)))
+    class Detector:
+        def __init__(self):
+            self.index = 0
+        def score(self, contexts):
+            result = dict(score=scores[self.index % 2], clipped=False)
+            self.index += 1
+            return result
+    config = load_config()
+    if capture is not None:
+        config['detector']['capture_threshold'] = capture
+    return Pipeline(config, Detector())
+
+
+def test_low_score_capture_retains_both_directions_but_never_confirms_horn_or_vehicle(monkeypatch, tmp_path):
+    pipeline = capture_pipeline(monkeypatch, [0.6, 0.55])
+    snapshot = dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False)
+    event, evidence = pipeline.analyze(snapshot)
+    assert event['state'] == 'CANDIDATE' and event['capture_candidate']
+    assert not event['horn_candidate'] and not event['doa_valid'] and event['azimuth'] is None
+    assert event['acoustic_state'] == 'capture_only' and event['event_basis'] == 'capture_candidate'
+    assert event['direction_candidates'] == [] and len(event['capture_candidates']) == 2
+    assert pipeline.capture(event, evidence, None, None, tmp_path, 0) is None
+    snapshot['end'] += pipeline.config['audio']['update_samples']
+    event, evidence = pipeline.analyze(snapshot)
+    assert event['state'] == 'CONFIRMED' and not event['horn_candidate']
+    class Cache:
+        def nearest(self, identity, timestamp):
+            return dict(image=np.zeros((1080, 1920, 3), dtype=np.uint8), jpeg=b'test-only', time=0)
+    class Vision:
+        def infer(self, image):
+            return []
+        def annotate(self, image, boxes, result, path):
+            assert result['state'] != 'unique' and result['evidence_level'] == 'capture_only'
+    result = pipeline.capture(event, evidence, Cache(), Vision(), tmp_path, 0)
+    assert result['selected_cameras'] == ['wide-0'] and result['photos'] == 1
+    assert result['visibility'] == 'partly_outside_camera_view'
+    assert result['association']['evidence_level'] == 'capture_only'
+    assert 'horn presence unconfirmed' in result['association']['verification']
+    assert pipeline.capture(event, evidence, Cache(), Vision(), tmp_path, 0) is None
+    snapshot['end'] += 2 * pipeline.config['audio']['update_samples']
+    event, _ = pipeline.analyze(snapshot)
+    assert event['history_reset'] and event['state'] == 'CANDIDATE'
+
+
+@pytest.mark.parametrize('capture', [None, 0.5])
+def test_capture_gate_never_changes_strict_horn_or_direction_decisions(monkeypatch, capture):
+    pipeline = capture_pipeline(monkeypatch, [0.8, 0.55], capture)
+    event, _ = pipeline.analyze(dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False))
+    assert event['horn_candidate'] and event['doa_valid'] and event['azimuth'] == 180
+    assert len(event['direction_candidates']) == 1
+    assert len(event['capture_candidates']) == (1 if capture is None else 2)
+    assert event['event_basis'] == ('horn_candidate' if capture is None else 'capture_candidate')
+
+
+@pytest.mark.parametrize('failure', ['input', 'activation', 'frontend'])
+def test_low_capture_gate_still_rejects_invalid_audio(monkeypatch, failure):
+    from ps.detector import FrontendOverflow
+    pipeline = capture_pipeline(monkeypatch, [0.6, 0.55])
+    if failure == 'activation':
+        monkeypatch.setattr(pipeline.detector, 'score', lambda *args: dict(score=0.6, clipped=True))
+    elif failure == 'frontend':
+        def overflow(*args):
+            raise FrontendOverflow('Outside calibrated frontend')
+        monkeypatch.setattr(pipeline.detector, 'score', overflow)
+    event, evidence = pipeline.analyze(dict(audio=np.zeros((48000, 14)), first=0, end=48000,
+                                            epoch=0, clipped=failure == 'input'))
+    assert not event['capture_candidate'] and not event['horn_candidate'] and not event['doa_valid']
+    assert event['state'] == 'IDLE' and event['capture_candidates'] == [] and evidence is None
+
+
+def test_capture_threshold_is_inclusive_but_default_keeps_low_scores_idle(monkeypatch):
+    snapshot = dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False)
+    event, _ = capture_pipeline(monkeypatch, [0.5, 0.49]).analyze(snapshot)
+    assert event['capture_candidate'] and len(event['capture_candidates']) == 1
+    assert not event['horn_candidate'] and event['acoustic_state'] == 'capture_only'
+    event, _ = capture_pipeline(monkeypatch, [0.5, 0.49], None).analyze(snapshot)
+    assert event['state'] == 'IDLE' and not event['capture_candidate'] and not event['horn_candidate']
+
+
+def test_capture_only_cannot_promote_a_unique_geometric_match(monkeypatch, tmp_path):
+    import ps.pipeline as module
+    monkeypatch.setattr(module, 'associate', lambda *args, **kwargs:
+                        dict(state='unique', groups=[[dict(identity='car-a')]], rejected=[], source_unexplained=False))
+    pipeline = Pipeline(load_config(), None)
+    event = dict(state='CONFIRMED', horn_candidate=False, capture_candidate=True, event_id=1,
+                 azimuth=None, doa_valid=False, capture_candidates=[dict(azimuth=0)])
+    result = pipeline.capture(event, None, None, None, tmp_path, 0)['association']
+    assert result['state'] == 'ambiguous' and result['groups'] == [[dict(identity='car-a')]]
+    assert result['evidence_level'] == 'capture_only' and 'horn presence unconfirmed' in result['verification']

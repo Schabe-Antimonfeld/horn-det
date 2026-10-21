@@ -31,3 +31,21 @@ def test_contract_rejects_incompatible_settings(section, key, value):
     config[section][key] = value
     with pytest.raises(ValueError):
         validate_config(config)
+
+
+@pytest.mark.parametrize('capture', [-0.01, 0.66, float('nan'), float('inf'), True, None, '0.5'])
+def test_capture_threshold_rejects_invalid_or_stricter_gates(capture):
+    config = load_config()
+    config['detector']['capture_threshold'] = capture
+    with pytest.raises(ValueError, match='Capture threshold'):
+        validate_config(config)
+
+
+@pytest.mark.parametrize('capture', [0, 0.5, 0.65])
+def test_optional_capture_threshold_leaves_direction_gate_unchanged(capture):
+    config = load_config()
+    assert 'capture_threshold' not in config['detector']
+    original = dict(config['detector'])
+    config['detector']['capture_threshold'] = capture
+    validate_config(config)
+    assert config['detector'] == dict(original, capture_threshold=capture)

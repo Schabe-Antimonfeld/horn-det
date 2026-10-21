@@ -78,12 +78,23 @@ class Pipeline:
                            response=bearings[int(index)].response, score=scores[int(index)])
                       for index in order if audible and scores[int(index)] >= self.config['detector']['threshold']
                       and (scores[int(index)] == score or score - scores[int(index)] < self.config['detector']['margin'])]
-        event = self.events.feed(audible, snapshot)
+        capture_threshold = self.config['detector'].get('capture_threshold', self.config['detector']['threshold'])
+        capture_candidate = bool(reliable and selected is not None and score >= capture_threshold)
+        capture_hypotheses = hypotheses
+        if 'capture_threshold' in self.config['detector']:
+            capture_hypotheses = [dict(azimuth=bearings[int(index)].azimuth, depression=bearings[int(index)].depression,
+                                      response=bearings[int(index)].response, score=scores[int(index)])
+                                  for index in order if capture_candidate and scores[int(index)] >= capture_threshold]
+        event = self.events.feed(capture_candidate, snapshot)
         event.update({'sample_first': snapshot['first'], 'sample_end_exclusive': snapshot['end'],
                       'epoch': snapshot['epoch'], 'score': score, 'score_margin': difference,
                       'horn_candidate': audible, 'doa_valid': valid,
+                      'capture_candidate': capture_candidate, 'capture_candidates': capture_hypotheses,
+                      'capture_threshold': capture_threshold, 'direction_threshold': self.config['detector']['threshold'],
+                      'event_basis': 'capture_candidate' if 'capture_threshold' in self.config['detector'] else 'horn_candidate',
                       'acoustic_state': ('invalid_audio' if not reliable else 'direction_selected' if valid
-                                         else 'ambiguous_direction' if audible else 'no_horn_evidence'),
+                                         else 'ambiguous_direction' if audible else 'capture_only' if capture_candidate
+                                         else 'no_horn_evidence'),
                       'direction_candidates': hypotheses, 'azimuth': selected.azimuth if valid else None,
                       'depression': selected.depression if valid else None, 'scores': scores,
                       'input_clipped': snapshot['clipped'], 'activation_clipped': any(clipped),
@@ -91,13 +102,13 @@ class Pipeline:
                       'processing_seconds': time.monotonic() - started,
                       'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
                       'classifier': getattr(self.detector, 'metadata', {}).get('architecture', 'test-detector')})
-        evidence = AcousticEvidence(selected, grid) if audible else None
+        evidence = AcousticEvidence(selected, grid) if capture_candidate else None
         return event, evidence
 
     def capture(self, event, evidence, cache, vision, output, representative_time):
-        if event['state'] != 'CONFIRMED' or not event['horn_candidate'] or event['event_id'] == self.captured:
+        if event['state'] != 'CONFIRMED' or not event.get('capture_candidate', event['horn_candidate']) or event['event_id'] == self.captured:
             return None
-        hypotheses = event.get('direction_candidates') or [dict(azimuth=event['azimuth'])]
+        hypotheses = event.get('capture_candidates') or event.get('direction_candidates') or [dict(azimuth=event['azimuth'])]
         routes = [route_cameras(self.rig, hypothesis['azimuth']) for hypothesis in hypotheses]
         selected = sorted({identity for route in routes for identity in route})
         detections, images = [], []
@@ -138,7 +149,11 @@ class Pipeline:
             result['acoustic_hypotheses'] = comparisons
         if result['groups']:
             result['state'] = 'ambiguous'
+        result['evidence_level'] = ('capture_only' if not event['horn_candidate'] else 'direction_selected'
+                                    if event.get('doa_valid') else 'direction_ambiguous')
         result['verification'] = 'unverified timing/calibration and heuristic box-bottom anchors; no unique vehicle attribution'
+        if not event['horn_candidate']:
+            result['verification'] = 'low-score capture candidate; horn presence unconfirmed; ' + result['verification']
         for identity, frame, boxes in images:
             name = 'event-{}-{}'.format(event['event_id'], identity)
             (output / (name + '.jpg')).write_bytes(frame['jpeg'])
