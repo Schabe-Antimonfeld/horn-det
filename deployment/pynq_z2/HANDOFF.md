@@ -1,5 +1,7 @@
 # 合作者上板交接与剩余工作
 
+main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1f11b16。商品参数、标定/USB验收顺序及固定仿真摘要见[CAMERA.md](CAMERA.md)。已发现当前Tiny CNN在52个含鸣笛构造场景中仅接受6个、正确接受方向1个，不能将摄像头适配当端到端可用证明；检测改进须单独评价。
+
 ## 本机已知阻塞
 
 2026-10-17使用D:/Xilinx/Vivado/2019.2/bin/vivado.bat实际启动2019.2。创建xc7z020clg400-1项目失败：Device 21-436 No parts matched，Coretcl 2-106 Specified part could not be found。安装中没有可用PYNQ-Z2板卡定义。日志在本地outputs/probe-project.log。没有目标综合/布局布线/时序/资源/bitstream结果；不能用Icarus通过替代。

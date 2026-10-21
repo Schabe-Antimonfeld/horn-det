@@ -1,5 +1,7 @@
 # Python 算法原型
 
+main单摄像头扩展：`simulate_surround.py --profile profiles/gc2093_single.json --output outputs/gc2093_single_v1`复用板端同款Tiny CNN整数参考及真实录音合成阵列；`--geometry-only`仅检查几何/解析关联。该profile的镜头参数人为构造且标记simulation_only，不是真实GC2093标定。结果与限制见[广角适配说明](../deployment/pynq_z2/CAMERA.md)，原多相机版本冻结于legacy分支。未指定profile时仍沿用原多相机/PANNs研究默认值，PANNs不在板端运行。
+
 使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。完整模型与测试使用 `uv run --extra learning pytest`，CPU PyTorch 与 scikit-learn 在 learning extra 中；依赖版本由 `uv.lock` 固定。以下含模型的命令均携带 `--extra learning`，防止 uv 自动同步时移除可选依赖。
 
 音频统一为 `(samples, channels)`，频谱使用负指数正变换，麦克风对按 `i < j` 排序，TDOA 为 `tau_i - tau_j`，0° 指向 +x，正角转向 +y。参数入口是 `src/horn/config.py`。

@@ -55,3 +55,14 @@ def test_unavailable_camera_is_retried_and_successful_capture_is_deduplicated(tm
             pass
     assert pipeline.capture(event, None, Cache(), Vision(), tmp_path, 0)['photos'] > 0
     assert pipeline.capture(event, None, Cache(), Vision(), tmp_path, 0) is None
+
+
+def test_outside_wide_camera_view_does_not_assign_visible_vehicles(tmp_path):
+    pipeline = Pipeline(load_config(), None)
+    class Cache:
+        def nearest(self, identity, timestamp):
+            raise AssertionError('Rear source must not request an unrelated camera frame')
+    event = {'state': 'CONFIRMED', 'horn_candidate': True, 'event_id': 1, 'azimuth': 180}
+    result = pipeline.capture(event, None, Cache(), None, tmp_path, 0)
+    assert result['visibility'] == 'outside_camera_view' and result['photos'] == 0
+    assert result['association']['source_unexplained'] and not result['association']['groups']

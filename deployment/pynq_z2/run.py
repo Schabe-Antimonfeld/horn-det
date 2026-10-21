@@ -119,7 +119,7 @@ def main(argv=None):
             if settings['configuration']:
                 settings['configuration'] = str(resolve(settings['configuration']))
             vision = Vision(settings)
-            camera_cache = CameraCache(config['camera']['sources'], vision)
+            camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
         pipeline = Pipeline(config, detector, scorer)
         clock_origin, clock_epoch = None, None

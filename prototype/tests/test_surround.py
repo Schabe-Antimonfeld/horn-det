@@ -88,6 +88,24 @@ def test_single_camera_has_no_down_camera_or_rear_coverage():
     assert route_cameras(rig, 180) == []
 
 
+def test_single_calibrated_simulator_profile_keeps_blind_and_missing_target_cases(tmp_path):
+    prototype = Path(__file__).resolve().parents[1]
+    output = tmp_path / "single"
+    result = subprocess.run([sys.executable, "-B", str(prototype / "simulate_surround.py"),
+                             "--geometry-only", "--profile", str(prototype / "profiles/gc2093_single.json"),
+                             "--output", str(output)], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert result.returncode == 0, result.stderr
+    config = json.loads((output / "configuration.json").read_text(encoding="utf-8"))
+    assert config["acoustics"]["classifier"] == "tiny"
+    assert len(config["cameras"]) == 1 and config["cameras"][0]["identity"] == "wide-0"
+    assert config["rig"]["calibration"]["simulation_only"]
+    assert len(json.loads((output / "coverage-sweep.json").read_text())) == 9
+    comparison = json.loads((output / "visual-comparison.json").read_text())
+    assert comparison["spatial"]["missed_collinear"]["incorrect_unique"] == 0
+    cases = json.loads((output / "visual-cases.json").read_text())
+    assert any(not row["selected_cameras"] for row in cases)
+
+
 @pytest.mark.parametrize("changes", [{"count": 0}, {"count": 2.5}, {"height": -1},
                                      {"pitch": 91}, {"hfov": 180}, {"image_height": 0},
                                      {"minimum_range": 50}, {"horn_height": 9}])

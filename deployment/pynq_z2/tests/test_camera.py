@@ -152,6 +152,17 @@ def test_original_jpeg_grid_is_used_and_history_is_bounded():
     assert cache.health()['cached_frames'][source['id']] == 2
 
 
+def test_high_usb_rate_preserves_history_at_the_configured_interval():
+    source = source_settings()
+    cache = CameraCache([source], None, frames=8, period=0.25)
+    messages = queue.Queue()
+    for index in range(60):
+        messages.put({'kind': 'frame', 'frame': {'time': index / 30, 'mode': {}}})
+    cache.run_usb(source, SimpleNamespace(is_alive=lambda: False), messages)
+    times = [frame['time'] for frame in cache.history[source['id']]]
+    assert len(times) == 8 and times[-1] - times[0] > 1.7
+
+
 def calibration_record():
     return {'format': 1, 'model': 'fisheye', 'width': 1920, 'height': 1080, 'maximum_angle': 80,
             'matrix': [[600, 0, 960], [0, 600, 540], [0, 0, 1]], 'coefficients': [0, 0, 0, 0]}
@@ -172,6 +183,9 @@ def test_calibration_loading_and_usb_geometry_consistency(tmp_path):
     config = load_config()
     config['vision']['enabled'] = True
     with pytest.raises(ValueError, match='measured lens'):
+        validate_config(config)
+    config['camera']['calibration'] = dict(calibration_record(), simulation_only=True)
+    with pytest.raises(ValueError, match='Simulation-only'):
         validate_config(config)
 
 

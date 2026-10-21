@@ -162,7 +162,8 @@ def visual_trials(rig, cameras, seed, output, association):
             angle = float(generator.uniform(-180, 180))
             radius = float(generator.uniform(8, 30))
             if mode == "boundary":
-                angle = float(wrap_angle(rig.yaw + (index % rig.count + 0.5) * 360 / rig.count))
+                angle = float(wrap_angle(rig.yaw + ((-1) ** index * rig.hfov / 2 if rig.layout == "single"
+                                                    else (index % rig.count + 0.5) * 360 / rig.count)))
             if mode == "near":
                 radius = 2.0
             if mode in ("collinear", "missed_collinear"):
@@ -232,12 +233,9 @@ def source_waveform(record):
 
 
 def acoustic_trials(rig, cameras, settings, seed, output, association):
-    import torch
-    torch.set_num_threads(2)
     base = PROTO / "outputs" / "horn_detector_v1"
-    checkpoint = base / "panns-horn.pt"
     records_path = base / "clips.json"
-    frozen = {str(path.relative_to(PROTO)): digest(path) for path in (checkpoint, records_path)}
+    frozen = {str(records_path.relative_to(PROTO)): digest(records_path)}
     records = json.loads(records_path.read_text(encoding="utf-8"))
     selected = sorted([item for item in records if item["dataset"] == "ESC50" and item["split"] == "test"],
                       key=lambda item: item["file"])
@@ -246,7 +244,22 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
     sources = [source_waveform(item) for item in horns + backgrounds]
     if len(horns) != 2:
         raise ValueError("Two existing ESC50 test horn recordings are required")
-    network = FrozenPanns(checkpoint)
+    if settings["classifier"] == "tiny":
+        sys.path.insert(0, str(PROTO.parent / "deployment" / "pynq_z2"))
+        from ps.detector import Detector
+        from ps.dsp import features
+        directory = base / "fpga_model"
+        network = Detector(directory)
+        frozen.update({str(path.relative_to(PROTO)): digest(path) for path in directory.iterdir() if path.is_file()})
+        def classify(beams):
+            return [network.score(features(beam))["score"] for beam in beams]
+    else:
+        import torch
+        torch.set_num_threads(2)
+        checkpoint = base / "panns-horn.pt"
+        frozen[str(checkpoint.relative_to(PROTO))] = digest(checkpoint)
+        network = FrozenPanns(checkpoint)
+        classify = network.score
     config = Config(microphones=14, diameter=0.24)
     coordinates = circular_array(config)
     generator = np.random.default_rng(seed)
@@ -272,7 +285,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
         grid = spatial_response(audio, coordinates, config)
         candidates = bearing_candidates(*grid, count=settings["candidate_count"])
         beams = [form_beam(audio, coordinates, bearing, config)[0] for bearing in candidates]
-        scores = network.score(beams)
+        scores = classify(beams)
         decision = select_bearing(candidates, scores, settings["threshold"], settings["margin"])
         elapsed = (time.perf_counter() - began) * 1000
         chosen = candidates[decision["index"]] if decision["index"] is not None else None
@@ -310,7 +323,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
                    incorrect_unique_vehicle=sum(row["evaluation"]["incorrect_unique"] for row in positives),
                    median_ms=float(np.median([row["processing_ms"] for row in rows])),
                    p90_ms=float(np.percentile([row["processing_ms"] for row in rows], 90)),
-                   timing_scope="one completed 1 s window: STFT + full 360/elevation SRP + beams + PANNs; includes first-call warmup; excludes synthesis, I/O, routing and association",
+                   timing_scope="one completed 1 s window: STFT + full 360/elevation SRP + beams + selected frozen classifier; includes first-call warmup; excludes synthesis, I/O, routing and association",
                    settings=settings, sources=[item[1] for item in sources], frozen_hashes=frozen,
                    caution="58 constructed stationary scenes from only 2 horn and 2 nonhorn recordings; inherited/unvalidated gates, no threshold tuning, no deployment claims")
     summary["association_comparison"] = {
@@ -332,12 +345,16 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
 
 def report(output, config, coverage, visual, acoustic, examples):
     rig = config["rig"]
-    lines = ["# 可调多相机鸣笛定位与车辆关联仿真", "",
+    single = rig.get("layout") == "single"
+    classifier = "板端同款TinyCNN整数参考" if config["acoustics"]["classifier"] == "tiny" else "PANNs"
+    topology = "单颗广角相机，无下视相机" if single else f"环形相机 {rig['count']} 个＋下视 1 个"
+    distortion = "包含配置的畸变模型，不代表真实镜头标定精度" if rig.get("calibration") else "未计畸变"
+    lines = ["# 可调相机鸣笛定位与车辆关联仿真", "",
              "本报告是可复现的工程原型验证。图像输入是几何生成的车辆框与地面锚点，不含真实车辆检测、真实跟踪或实际相机采集；唯一几何匹配不等于已证明该车鸣笛。", "",
-             f"参数：环形相机 {rig['count']} 个＋下视 1 个，高度 {rig['height']} m，向下俯角 {rig['pitch']}°，视场 {rig['hfov']}°×{rig['vfov']}°，监控距离 {rig['minimum_range']}～{rig['maximum_range']} m。配置不是硬件推荐或冻结值。", "",
+             f"参数：{topology}，高度 {rig['height']} m，向下俯角 {rig['pitch']}°，名义视场 {rig['hfov']}°×{rig['vfov']}°，监控距离 {rig['minimum_range']}～{rig['maximum_range']} m。配置不是硬件推荐或冻结值。", "",
              "## 地面覆盖", "",
-             f"1 m 等面积网格中心共 {coverage['cells']} 个，几何覆盖 {coverage['fraction']:.2%}，至少两个相机覆盖 {coverage['overlap']:.2%}。未计遮挡、畸变、目标像素尺寸；采样不能证明连续地面无缝覆盖。", "",
-             "[覆盖图](coverage.svg)；[参数扫描](coverage-sweep.json)；[完整配置](configuration.json)。默认扫描 36 组；若指定较高喇叭高度，则跳过低于喇叭的安装高度。扫描使用理想均匀布局，不应用逐相机安装覆盖项。", "",
+             f"1 m 等面积网格中心共 {coverage['cells']} 个，几何覆盖 {coverage['fraction']:.2%}，至少两个相机覆盖 {coverage['overlap']:.2%}。{distortion}；未计遮挡、目标像素尺寸，采样不能证明连续地面无缝覆盖。", "",
+             "[覆盖图](coverage.svg)；[参数扫描](coverage-sweep.json)；[完整配置](configuration.json)。单相机扫描9组高度/俯角，多相机扫描36组；跳过低于喇叭的安装高度。扫描不应用逐相机安装覆盖项。", "",
              "## 独立声画关联检查", "",
              "本组注入已知方向/俯角或指定误差，并用方位标准差2°、俯角标准差2°的解析高斯响应检查接口；不运行声音定位或分类器，不能把注入真值当成实测俯角。车辆框来自 4.5×1.8×1.5 m 长方体，速度由相隔0.1 s的两个模拟地面锚点反投影求差。", "",
              "| 条件 | 数量 | 正确唯一 | 错误唯一 | 歧义 | 未匹配 | 保留目标 |", "|---|---:|---:|---:|---:|---:|---:|"]
@@ -345,23 +362,23 @@ def report(output, config, coverage, visual, acoustic, examples):
         lines.append(f"| {mode} | {value['count']} | {value['correct_unique']} | {value['incorrect_unique']} | {value['ambiguous']} | {value['unmatched']} | {value['target_retained']} |")
     lines.extend(["", "clean：无扰动；perturbed：方位标准差3°、俯角标准差1.5°、锚点标准差2 px、逐相机漏框率10%；boundary：相机分界；near：距离2 m；collinear：12/24 m同方向双车；missed_collinear：额外漏掉目标全部框；stale：图像晚1.2 s；moving：12 m/s切向运动、图像晚0.25 s；calibration：标定朝向偏差2°；broad_response：解析俯角响应标准差12°；missing_evidence：不给声学证据。", "",
                   "[三种关联方式对照](visual-comparison.json)使用完全相同的框、时间和输入证据。azimuth为显式旧基线，depression增加高度/位置区间的俯角检查，spatial再检查SRP支持及峰宽。默认spatial缺少证据时不回退到只看角度。", "",
-                  f"当前门限（未在新道路数据校准）：{json.dumps(config['association'], ensure_ascii=False)}。SRP支持相对PANNs选中的鸣笛候选峰，而非可能属于发动机的全局最高峰；接受后仍只能称为声学兼容候选，不能视作违规归属证据。", "",
+                  f"当前门限（未在新道路数据校准）：{json.dumps(config['association'], ensure_ascii=False)}。SRP支持相对{classifier}选中的鸣笛候选峰，而非可能属于发动机的全局最高峰；接受后仍只能称为声学兼容候选，不能视作违规归属证据。", "",
                   "[逐场景记录](visual-cases.json)；[分条件指标](visual-report.json)。以下均为合成框示意图：", ""])
     lines.extend([f"- [{name}]({name})" for name in examples])
     lines.extend(["", "## 真实录音合成阵列闭环", ""])
     if acoustic is None:
-        lines.append("本次使用 --geometry-only，未执行 PANNs/声学仿真。")
+        lines.append("本次使用 --geometry-only，未执行分类器/声学仿真。")
     else:
         count = acoustic["positive_count"]
-        lines.extend([f"使用冻结PANNs、2条ESC50测试鸣笛与2条测试干扰录音，构造{count}个有鸣笛、{acoustic['negative_count']}个无鸣笛场景。标准组36正例目标距离4/15/35 m；另有16个12/24 m同方向双车压力场景，其中8个隐藏全部目标车框。干扰比目标强5 dB，白噪声为单位目标RMS下25 dB。俯角与响应全部从合成阵列音频估计，没有将真实车辆距离传入关联证据。", "",
+        lines.extend([f"使用冻结{classifier}、2条ESC50测试鸣笛与2条测试干扰录音，构造{count}个有鸣笛、{acoustic['negative_count']}个无鸣笛场景。标准组36正例目标距离4/15/35 m；另有16个12/24 m同方向双车压力场景，其中8个隐藏全部目标车框。干扰比目标强5 dB，白噪声为单位目标RMS下25 dB。俯角与响应全部从合成阵列音频估计，没有将真实车辆距离传入关联证据。", "",
                       f"- 水平来声基线最强峰正确方向：{acoustic['baseline_correct']}/{count}。",
                       f"- 考虑俯角的前 {acoustic['settings']['candidate_count']} 个候选包含正确方向：{acoustic['candidate_hits']}/{count}。",
-                      f"- 波束＋PANNs 接受正例：{acoustic['accepted_positive']}/{count}；正确接受方向（误差＜10°）：{acoustic['correct_direction']}/{count}。",
+                      f"- 波束＋{classifier} 接受正例：{acoustic['accepted_positive']}/{count}；正确接受方向（误差＜10°）：{acoustic['correct_direction']}/{count}。",
                       f"- 无鸣笛场景接受：{acoustic['accepted_negative']}/{acoustic['negative_count']}；不能换算误报/小时。",
                       f"- 正例闭环正确唯一车辆：{acoustic['correct_unique_vehicle']}/{count}；错误唯一车辆：{acoustic['incorrect_unique_vehicle']}/{count}。",
                       f"- 声学处理耗时中位数 {acoustic['median_ms']:.1f} ms，P90 {acoustic['p90_ms']:.1f} ms；包含首次调用，非板上性能或鸣笛起点延迟。", "",
                       "方向正确不要求距离估计正确；地面位置来自模拟视觉锚点。传播使用精确球面相对延时及 1/r 通道幅度差，不加入反射，波形去除公共飞行时间并保留滤波缓冲，绝对飞行时间在关联时间中显式处理。阵列为理想 14 路、直径 0.24 m，48 kHz；SRP 为 2°方位×3°向下俯角，PHAT 逐帧归一化后平均。", "",
-                      "分类阈值 0.2、分差 0 继承旧实验，仅用于接通流程；未在本 360°高位场景验证或调参。两条鸣笛录音反复使用，裁剪为原录音最高能量的一秒，不含事件起止标注，不能推断短鸣召回或事件延迟。整车静止；移动只在独立视觉关联组验证，未完成动态声场闭环。", "",
+                      f"分类阈值 {config['acoustics']['threshold']}、分差 {config['acoustics']['margin']} 继承对应实验/部署默认值，未在本高位场景验证或调参。两条鸣笛录音反复使用，裁剪为原录音最高能量的一秒，不含事件起止标注，不能推断短鸣召回或事件延迟。整车静止；移动只在独立视觉关联组验证，未完成动态声场闭环。", "",
                       "[声学指标与来源哈希](acoustic-report.json)；[逐场景声学与匹配输出](acoustic-cases.json)。"])
         lines.extend(["", "三种关联方式在同一音频、同一候选、同一框上的对照（正确唯一／错误唯一／歧义／未匹配）：", "",
                       "| 方法 | 标准正例36 | 同方向双车8 | 目标漏检8 |", "|---|---|---|---|"])
@@ -369,11 +386,11 @@ def report(output, config, coverage, visual, acoustic, examples):
             values = [" / ".join(str(groups[mode][key]) for key in ("correct_unique", "incorrect_unique", "ambiguous", "unmatched"))
                       for mode in ("standard", "collinear", "missed_collinear")]
             lines.append(f"| {method} | {' | '.join(values)} |")
-        lines.extend(["", "目标漏检与双车可见组的分类/定位结果可能受相干干扰影响；必须同时查看错误唯一与正确唯一损失。若两车在当前阵列分辨能力内不可区分，或PANNs选择了含鸣笛泄漏的错误波束，本方法仍不能保证排除错配，不得针对这组测试调阈值隐藏失败。"])
+        lines.extend(["", "目标漏检与双车可见组的分类/定位结果可能受相干干扰影响；必须同时查看错误唯一与正确唯一损失。若两车在当前阵列分辨能力内不可区分，或分类器选择了含鸣笛泄漏的错误波束，本方法仍不能保证排除错配，不得针对这组测试调阈值隐藏失败。"])
     lines.extend(["", "## 运行与边界", "", "```powershell",
                   r".\prototype\.venv\Scripts\python.exe -B prototype/simulate_surround.py --output prototype/outputs/surround_v2",
                   r".\prototype\.venv\Scripts\python.exe -B prototype/simulate_surround.py --geometry-only --cameras 8 --height 8 --pitch 45 --output prototype/outputs/surround_custom",
-                  "```", "", "不下载数据或模型，不训练模型，不新增依赖。完整声学运行要求已有 outputs/horn_detector_v1/panns-horn.pt、clips.json 及其引用的本地真实录音；缺失则明确失败，不用随机权重替代。", "",
+                  "```", "", "不下载数据或模型，不训练模型，不新增依赖。完整声学运行要求已有 outputs/horn_detector_v1/clips.json 和本地真实录音，按classifier选择panns-horn.pt或fpga_model整数模型；缺失则明确失败，不用随机权重替代。", "",
                   "关联与声学测试使用固定的场景距离；自定义监控范围不包含这些位置时，越界导致的未匹配仍保留。需要比较配置时使用不同输出目录，防止混入其他配置的旧产物。", "",
                   "尚待验证：真实相机内外参/畸变、真实车辆检测与跟踪、遮挡与路面坡度、硬件时钟同步、连续声场/视频缓存、真实道路声学误差、角度及分数门限、摄像头 I/O、FPGA 部署。", ""])
     (output / "README.md").write_text("\n".join(lines), encoding="utf-8")
@@ -405,10 +422,12 @@ def main():
     if set(overrides) - {camera.identity for camera in cameras} or any("identity" in value for value in overrides.values()):
         raise ValueError("Camera overrides must reference existing immutable identities")
     cameras = [replace(camera, **overrides.get(camera.identity, {})) for camera in cameras]
-    settings = dict(candidate_count=2, threshold=0.2, margin=0.0)
+    settings = dict(candidate_count=2, threshold=0.2, margin=0.0, classifier="panns")
     if set(profile.get("acoustics", {})) - settings.keys():
         raise ValueError("Unknown acoustic settings")
     settings.update(profile.get("acoustics", {}))
+    if settings["classifier"] not in ("panns", "tiny"):
+        raise ValueError("Classifier must be panns or tiny")
     if type(settings["candidate_count"]) is not int or settings["candidate_count"] < 1:
         raise ValueError("Candidate count must be a positive integer")
     select_bearing([], [], settings["threshold"], settings["margin"])
@@ -419,6 +438,10 @@ def main():
                   seed=arguments.seed, geometry_only=arguments.geometry_only,
                   source_hashes={str(path.relative_to(PROTO)): digest(path) for path in
                                  [Path(__file__).resolve(), PROTO / "src" / "horn" / "surround.py"]})
+    if settings["classifier"] == "tiny":
+        for name in ("detector.py", "dsp.py", "integer_kernel.py"):
+            path = PROTO.parent / "deployment" / "pynq_z2" / "ps" / name
+            config["source_hashes"][os.path.relpath(path, PROTO)] = digest(path)
     if output.exists() and any(output.iterdir()):
         previous_path = output / "configuration.json"
         if not previous_path.is_file():
@@ -435,7 +458,7 @@ def main():
     np.savez_compressed(output / "coverage-grid.npz", points=points, visible=visible)
     coverage_svg(output / "coverage.svg", rig, cameras)
     sweep = []
-    for count in (3, 4, 6, 8):
+    for count in ((1,) if rig.layout == "single" else (3, 4, 6, 8)):
         for height in (3, 6, 10):
             if height <= rig.horn_height:
                 continue

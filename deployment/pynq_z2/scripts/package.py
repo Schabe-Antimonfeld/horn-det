@@ -38,7 +38,7 @@ def package(model, output, bitstream=None, handoff=None):
     if bitstream and Path(bitstream).stem != Path(handoff).stem:
         raise ValueError('Bitstream/HWH must share a build basename')
     output.mkdir(parents=True, exist_ok=True)
-    for path in [ROOT / 'run.py', ROOT / 'README.md', ROOT / 'HANDOFF.md']:
+    for path in [ROOT / 'run.py', ROOT / 'README.md', ROOT / 'HANDOFF.md', ROOT / 'CAMERA.md']:
         shutil.copy2(str(path), str(output / path.name))
     for folder, pattern in [('ps', '*.py'), ('config', '*.json'), ('scripts', '*.py'), ('scripts', '*.tcl'),
                              ('scripts', '*.service'), ('rtl', '*.v')]:

@@ -23,7 +23,8 @@ def test_bundle_runs_without_source_checkout_and_detects_tampering(tmp_path):
     manifest = module.package(model, bundle)
     assert not manifest['firmware_included'] and not manifest['board_validated']
     assert (tmp_path / 'standalone.zip').is_file()
-    for name in ('ps/srp.py', 'rtl/srp_batch.v', 'rtl/srp_accumulator.v', 'scripts/connect_srp.tcl'):
+    for name in ('ps/srp.py', 'rtl/srp_batch.v', 'rtl/srp_accumulator.v', 'scripts/connect_srp.tcl',
+                 'CAMERA.md', 'scripts/camera.py'):
         assert name in manifest['files']
     result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
                             capture_output=True, text=True, timeout=30)
@@ -37,7 +38,7 @@ def test_bundle_runs_without_source_checkout_and_detects_tampering(tmp_path):
 
 
 def test_every_board_entry_uses_python36_syntax_and_no_pc_imports():
-    paths = list((ROOT / 'ps').glob('*.py')) + [ROOT / 'run.py']
+    paths = list((ROOT / 'ps').glob('*.py')) + [ROOT / 'run.py', ROOT / 'scripts/camera.py']
     for path in paths:
         tree = ast.parse(path.read_text(encoding='utf-8'), feature_version=(3, 6))
         for node in ast.walk(tree):

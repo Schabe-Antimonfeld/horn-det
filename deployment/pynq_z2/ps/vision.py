@@ -249,7 +249,9 @@ class CameraCache:
                 if message['kind'] == 'error':
                     self.errors[source['id']] = message['message']
                 else:
-                    self.history[source['id']].append(message['frame'])
+                    history = self.history[source['id']]
+                    if not history or message['frame']['time'] - history[-1]['time'] >= self.period:
+                        history.append(message['frame'])
                     self.modes[source['id']] = message['frame']['mode']
                     self.errors.pop(source['id'], None)
 

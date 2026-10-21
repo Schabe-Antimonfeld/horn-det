@@ -27,6 +27,7 @@ horn-det/
 │   ├── README.md
 │   ├── main.py
 │   ├── simulate_surround.py
+│   ├── profiles/gc2093_single.json
 │   ├── src/horn/
 │   └── tests/
 ├── fpga/
@@ -40,6 +41,7 @@ horn-det/
 ├── deployment/pynq_z2/
 │   ├── README.md
 │   ├── HANDOFF.md
+│   ├── CAMERA.md
 │   ├── run.py
 │   ├── config/
 │   ├── ps/

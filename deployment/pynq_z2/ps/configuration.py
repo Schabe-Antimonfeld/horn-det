@@ -73,8 +73,14 @@ def validate_config(config):
             raise ValueError('USB mode must match the camera geometry and calibration')
     if config['vision']['enabled'] and camera.get('layout') == 'single' and camera.get('calibration') is None:
         raise ValueError('Wide-angle vision requires measured lens calibration')
+    if config['vision']['enabled'] and isinstance(camera.get('calibration'), dict) and camera['calibration'].get('simulation_only'):
+        raise ValueError('Simulation-only lens parameters cannot enable live vision')
     if config['hardware']['timeout'] <= 0:
         raise ValueError('Hardware timeout must be positive')
+    cache = config.get('camera_cache', {'frames': 4, 'period': 0.5, 'timeout': 2.0})
+    if type(cache['frames']) is not int or not 2 <= cache['frames'] <= 128 or any(
+            not math.isfinite(cache[key]) or cache[key] <= 0 for key in ('period', 'timeout')):
+        raise ValueError('Camera cache needs 2..128 frames and finite positive periods/timeouts')
     for key in ('gains', 'delays'):
         values = audio.get(key)
         if values is not None and (len(values) != 14 or not all(math.isfinite(value) for value in values)

@@ -1,0 +1,14 @@
+{
+  "rig": {
+    "layout": "single", "count": 1, "height": 6.0, "pitch": 40.0,
+    "hfov": 144.0, "vfov": 77.6, "width": 1920, "image_height": 1080,
+    "calibration": {
+      "format": 1, "model": "fisheye", "width": 1920, "height": 1080,
+      "matrix": [[764.0, 0.0, 960.0], [0.0, 797.0, 540.0], [0.0, 0.0, 1.0]],
+      "coefficients": [-0.01, 0.001, 0.0, 0.0], "maximum_angle": 83.0,
+      "simulation_only": true,
+      "evidence": "Invented equidistant-like simulation parameters; not a measured GC2093 calibration"
+    }
+  },
+  "acoustics": {"candidate_count": 2, "threshold": 0.65, "margin": 0.05, "classifier": "tiny"}
+}
