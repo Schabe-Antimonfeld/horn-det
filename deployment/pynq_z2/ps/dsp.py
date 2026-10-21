@@ -164,3 +164,14 @@ def features(waveform, frontend='logmel'):
     if frontend == 'centered_logmel':
         contexts -= contexts.mean(axis=(1, 2), keepdims=True)
     return contexts
+
+
+def band_features(contexts):
+    """Retain absolute Mel positions while removing a common log-energy offset."""
+    values = np.asarray(contexts, dtype=float)
+    if values.shape[-2:] != (40, 24) or not np.isfinite(values).all():
+        raise ValueError('Band statistics require finite 40x24 contexts')
+    values = values - values.mean(axis=(-2, -1), keepdims=True)
+    return np.concatenate((values.mean(axis=-1), values.std(axis=-1),
+                           np.abs(np.diff(values, axis=-1)).mean(axis=-1),
+                           np.ptp(values, axis=-1)), axis=-1)

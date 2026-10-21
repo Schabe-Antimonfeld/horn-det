@@ -12,9 +12,8 @@ import numpy as np
 
 from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
 from ps.configuration import ROOT, load_config
-from ps.detector import Detector
+from ps.detector import Detector, SpectralDetector, validate_model
 from ps.dsp import Conditioning
-from ps.integer_kernel import check_export
 from ps.pipeline import Pipeline
 from ps.srp import SrpDevice
 from ps.vision import CameraCache, Vision
@@ -68,7 +67,10 @@ def main(argv=None):
     if args.replay and config['search'].get('backend', 'numpy') == 'fpga':
         raise ValueError('WAV replay requires the NumPy SRP backend')
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
-    metadata = check_export(directory)
+    metadata = validate_model(directory)
+    spectral = config['detector']['backend'] == 'spectral'
+    if spectral != (metadata['architecture'] == 'BandMLP-7826'):
+        raise ValueError('Configured backend and model architecture disagree')
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'board_runtime': 'requires PYNQ/NumPy; hardware not checked',
@@ -91,18 +93,21 @@ def main(argv=None):
     try:
         conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
         if args.replay:
-            detector = Detector(directory)
+            detector = SpectralDetector(directory) if spectral else Detector(directory)
             snapshots = replay(args.replay, config['audio'], conditioning)
         else:
-            if config['detector']['backend'] != 'fpga':
-                raise ValueError('Live mode requires FPGA inference; integer backend is replay only')
+            if config['detector']['backend'] not in ('fpga', 'spectral'):
+                raise ValueError('Live mode requires FPGA CNN or NumPy spectral inference; integer backend is replay only')
             bitstream = resolve(config['hardware']['overlay'])
             if not bitstream.is_file() or not bitstream.with_suffix('.hwh').is_file():
                 raise ValueError('Matching bitstream and HWH are missing; complete the hardware handoff')
             from pynq import Overlay, allocate
             overlay = Overlay(str(bitstream))
-            device = cnn_client()(overlay, metadata, allocate, config['hardware']['timeout'])
-            detector = Detector(directory, device)
+            if spectral:
+                detector = SpectralDetector(directory)
+            else:
+                device = cnn_client()(overlay, metadata, allocate, config['hardware']['timeout'])
+                detector = Detector(directory, device)
             if config['search'].get('backend', 'numpy') == 'fpga':
                 scorer = SrpDevice(overlay, allocate, config['hardware']['timeout'])
             capture = CaptureDevice(overlay, allocate, config['audio'], config['hardware']['timeout'])

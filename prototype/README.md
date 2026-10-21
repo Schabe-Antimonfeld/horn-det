@@ -6,6 +6,10 @@
 
 两个前端候选为原始 `logmel` 与完成上下文去全局均值的 `centered_logmel`，后者消除常数 log 能量偏置但不消除噪声/频响变化，也需要重训。部署由模型 manifest 的 provenance.frontend 自动选择前端，旧 manifest 默认 `logmel`；不要只替换权重而沿用错误前端。1834 参数结构和 RTL 协议保持一致，新增模型仍须整数/RTL 对拍。PANNs 仅作 PC 冻结教师与对照，不作为 ARM 实时替代。
 
+验证阶段另增加 `train-spectral`（在 `freeze` 前执行），比较保留绝对 Mel 频带位置的 BandMLP：每个上下文的频带均值、标准差、时间差绝对均值和极差，160→48→2，共 7826 参数，内部去整体 log 能量偏置。训练仍只用弱场景标签与冻结教师；单架构、固定种子及原有训练预算，不继续搜索超参数。`ps.detector.SpectralDetector` 用 NumPy 实现板端推理，与 Tiny CNN RTL 是两种独立后端。MLP 导出不会生成新的 Verilog 权重，也未证明 ARM 全流程实时。
+
+`prepare --split test --stress` 与 `evaluate --stress` 使用同一冻结模型/门限，按预先记录的 ±12 dB 数字目标级别、反射及通道增益/时延误差进行压力诊断，不参与选型。实验每段 48000 样本，板端包对齐窗口为 48128 样本；前端公式一致不等于已验证连续流、事件延迟或道路性能。输入削顶、特征超出校准范围及激活饱和均保留为无效证据，不以削顶分数触发事件；分差不足则保留鸣笛候选及多个方向，抓拍仍不作唯一车辆归属。
+
 main单摄像头扩展：`simulate_surround.py --profile profiles/gc2093_single.json --output outputs/gc2093_single_v1`复用板端同款Tiny CNN整数参考及真实录音合成阵列；`--geometry-only`仅检查几何/解析关联。该profile的镜头参数人为构造且标记simulation_only，不是真实GC2093标定。结果与限制见[广角适配说明](../deployment/pynq_z2/CAMERA.md)，原多相机版本冻结于legacy分支。未指定profile时仍沿用原多相机/PANNs研究默认值，PANNs不在板端运行。
 
 使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。完整模型与测试使用 `uv run --extra learning pytest`，CPU PyTorch 与 scikit-learn 在 learning extra 中；依赖版本由 `uv.lock` 固定。以下含模型的命令均携带 `--extra learning`，防止 uv 自动同步时移除可选依赖。

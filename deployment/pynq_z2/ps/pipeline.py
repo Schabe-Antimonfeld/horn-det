@@ -5,7 +5,8 @@ import time
 import numpy as np
 
 from ps.dsp import beamform, candidates, features, spatial_map
-from ps.geometry import AcousticEvidence, Association, Detection, Rig, associate, route_cameras
+from ps.detector import FrontendOverflow
+from ps.geometry import AcousticEvidence, Association, Bearing, Detection, Rig, associate, route_cameras
 
 
 class Events:
@@ -55,34 +56,50 @@ class Pipeline:
         started = time.monotonic()
         grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'], self.scorer)
         bearings = candidates(grid, self.config['search']['candidates'], self.config['search']['separation'])
-        scores, clipped = [], []
+        scores, clipped, frontend_clipped = [], [], []
         for bearing in bearings:
             waveform, latency = beamform(snapshot['audio'], bearing, self.config['audio'])
-            result = self.detector.score(features(waveform, getattr(self.detector, 'frontend', 'logmel')))
+            try:
+                result = self.detector.score(features(waveform, getattr(self.detector, 'frontend', 'logmel')))
+            except FrontendOverflow:
+                result = dict(score=0.0, clipped=False, frontend_clipped=True)
             scores.append(result['score'])
             clipped.append(result['clipped'])
+            frontend_clipped.append(result.get('frontend_clipped', False))
         order = np.argsort(-np.asarray(scores), kind='stable')
         selected = bearings[int(order[0])] if len(order) else None
         score = scores[int(order[0])] if len(order) else 0.0
         difference = score - scores[int(order[1])] if len(order) > 1 else score
-        valid = bool(selected is not None and score >= self.config['detector']['threshold']
+        reliable = not snapshot['clipped'] and not any(clipped) and not any(frontend_clipped)
+        audible = bool(reliable and selected is not None and score >= self.config['detector']['threshold'])
+        valid = bool(audible and (len(order) == 1 or difference > 0)
                      and difference >= self.config['detector']['margin'])
-        event = self.events.feed(valid, snapshot)
+        hypotheses = [dict(azimuth=bearings[int(index)].azimuth, depression=bearings[int(index)].depression,
+                           response=bearings[int(index)].response, score=scores[int(index)])
+                      for index in order if audible and scores[int(index)] >= self.config['detector']['threshold']
+                      and (scores[int(index)] == score or score - scores[int(index)] < self.config['detector']['margin'])]
+        event = self.events.feed(audible, snapshot)
         event.update({'sample_first': snapshot['first'], 'sample_end_exclusive': snapshot['end'],
                       'epoch': snapshot['epoch'], 'score': score, 'score_margin': difference,
-                      'horn_candidate': valid, 'azimuth': selected.azimuth if valid else None,
+                      'horn_candidate': audible, 'doa_valid': valid,
+                      'acoustic_state': ('invalid_audio' if not reliable else 'direction_selected' if valid
+                                         else 'ambiguous_direction' if audible else 'no_horn_evidence'),
+                      'direction_candidates': hypotheses, 'azimuth': selected.azimuth if valid else None,
                       'depression': selected.depression if valid else None, 'scores': scores,
                       'input_clipped': snapshot['clipped'], 'activation_clipped': any(clipped),
+                      'frontend_clipped': any(frontend_clipped),
                       'processing_seconds': time.monotonic() - started,
                       'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
-                      'classifier': 'TinyCNN-1834; thresholds and beam-domain performance require validation'})
-        evidence = AcousticEvidence(selected, grid) if valid else None
+                      'classifier': getattr(self.detector, 'metadata', {}).get('architecture', 'test-detector')})
+        evidence = AcousticEvidence(selected, grid) if audible else None
         return event, evidence
 
     def capture(self, event, evidence, cache, vision, output, representative_time):
         if event['state'] != 'CONFIRMED' or not event['horn_candidate'] or event['event_id'] == self.captured:
             return None
-        selected = route_cameras(self.rig, event['azimuth'])
+        hypotheses = event.get('direction_candidates') or [dict(azimuth=event['azimuth'])]
+        routes = [route_cameras(self.rig, hypothesis['azimuth']) for hypothesis in hypotheses]
+        selected = sorted({identity for route in routes for identity in route})
         detections, images = [], []
         for identity in selected:
             frame = cache.nearest(identity, representative_time) if cache is not None else None
@@ -98,8 +115,23 @@ class Pipeline:
                 detections.append(Detection(box['identity'], identity, tuple(box['box']),
                                             ((left + right) / 2, bottom), frame['time']))
             images.append((identity, frame, boxes))
-        result = associate(self.rig, event['azimuth'], representative_time, detections,
-                           Association(**self.config['association']), evidence=evidence)
+        comparisons = []
+        for hypothesis in hypotheses:
+            support = evidence
+            if evidence is not None and 'depression' in hypothesis:
+                support = AcousticEvidence(Bearing(hypothesis['azimuth'], hypothesis['depression'], hypothesis['response']), evidence.grid)
+            comparisons.append(associate(self.rig, hypothesis['azimuth'], representative_time, detections,
+                                          Association(**self.config['association']), evidence=support))
+        result = dict(comparisons[0])
+        if len(comparisons) > 1:
+            groups = {}
+            for comparison in comparisons:
+                for group in comparison['groups']:
+                    groups[tuple(sorted(item['identity'] for item in group))] = group
+            result['groups'] = list(groups.values())
+            result['state'] = 'ambiguous' if groups else 'unmatched'
+            result['source_unexplained'] = any(comparison['source_unexplained'] for comparison in comparisons)
+            result['acoustic_hypotheses'] = comparisons
         if result['groups']:
             result['state'] = 'ambiguous'
         result['verification'] = 'unverified timing/calibration and heuristic box-bottom anchors; no unique vehicle attribution'
@@ -110,4 +142,5 @@ class Pipeline:
         if images:
             self.captured = event['event_id']
         return {'selected_cameras': selected, 'association': result, 'photos': len(images),
-                'visibility': 'candidate_in_nominal_or_calibrated_view' if selected else 'outside_camera_view'}
+                'visibility': ('partly_outside_camera_view' if selected and any(not route for route in routes)
+                               else 'candidate_in_nominal_or_calibrated_view' if selected else 'outside_camera_view')}

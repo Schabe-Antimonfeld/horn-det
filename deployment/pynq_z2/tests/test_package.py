@@ -48,6 +48,26 @@ def test_every_board_entry_uses_python36_syntax_and_no_pc_imports():
                 assert (node.module or '').split('.')[0] not in {'torch', 'scipy', 'horn'}
 
 
+def test_spectral_bundle_preserves_backend_and_frozen_gates(tmp_path):
+    base = ROOT.parents[1] / 'prototype/outputs/horn_recovery_v1'
+    configuration = base / 'spectral_numpy-config.json'
+    if not configuration.exists():
+        pytest.skip('Optional local spectral experiment absent')
+    specification = importlib.util.spec_from_file_location('spectral_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+    output = tmp_path / 'spectral'
+    manifest = module.package(base / 'spectral_model', output, configuration=configuration)
+    config = json.loads((output / 'config/default.json').read_text())
+    assert config['detector']['backend'] == 'spectral' and config['detector']['model_directory'] == 'model'
+    assert config['detector']['threshold'] == json.loads(configuration.read_text())['detector']['threshold']
+    result = subprocess.run([sys.executable, '-B', str(output / 'run.py'), '--check'], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)['model_tag'] == manifest['model_tag']
+    module.verify(output)
+
+
 def test_model_validator_can_ignore_vivado_python2_environment():
     model = ROOT.parents[1] / 'prototype/outputs/horn_detector_v1/fpga_model'
     if not model.is_dir():

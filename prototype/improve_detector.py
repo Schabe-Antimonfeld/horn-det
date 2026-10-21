@@ -29,7 +29,8 @@ from horn.geometry import circular_array
 from horn.recovery import camera_rig, choose_gate, digest, joint_metrics, pcm_roundtrip, scene_plan, visible_target, write_json
 from horn.surround import (AcousticEvidence, Association, Bearing, FrozenPanns, Rig, associate,
                            bearing_candidates, propagate_audio, route_cameras, select_bearing, wrap_angle)
-from ps.dsp import Conditioning, beamform, features, spatial_map
+from ps.dsp import Conditioning, band_features, beamform, features, spatial_map
+from ps.detector import SpectralDetector
 from simulate_surround import evaluate_match, observations
 
 BASE = PROTO / 'outputs/horn_detector_v1'
@@ -129,7 +130,10 @@ def synthesize(case, sources, profile, stress=False):
             echo = fractional_delay(sources[name][0], 0.025 * config.sample_rate)
             reflection += settings['reflection_gain'] * level * propagate_audio(echo, reflected, coordinates, config)[0]
         noise += reflection
-    decoded, pcm = pcm_roundtrip(*components, noise, case['target_rms'], profile['headroom'])
+    requested = case['target_rms']
+    if stress:
+        requested *= 10 ** (profile['stress']['gain_db'][case['pair'] % 2] / 20)
+    decoded, pcm = pcm_roundtrip(*components, noise, requested, profile['headroom'])
     audio = Conditioning(14).feed(decoded * 32768)
     if augmented:
         settings = profile['stress']
@@ -148,7 +152,7 @@ def prepare(keys):
     torch = configure()
     old = TinyCNN().eval()
     old.load_state_dict(torch.load(BASE / 'tiny-horn.pt', map_location='cpu', weights_only=True)['state'])
-    names = {case[name] for key in keys for case in plan['plans'][key] for name in ('target', 'interferer')}
+    names = {case[name] for key in keys for case in plan['plans'][key.replace('stress-', 'test-')] for name in ('target', 'interferer')}
     sources = {record['file']: waveform(record) for record in plan['sources'] if record['file'] in names}
     settings = dict(channels=14, diameter=0.24, sample_rate=48000, speed=343.0)
     search = dict(azimuth_step=2, depression_step=3, block_directions=128)
@@ -160,8 +164,9 @@ def prepare(keys):
             continue
         contexts, grids, rows, soft, raw = [], [], [], [], []
         began = time.monotonic()
-        for number, case in enumerate(plan['plans'][key], 1):
-            audio, pcm, points, augmented = synthesize(case, sources, plan['profile'])
+        planned = plan['plans'][key.replace('stress-', 'test-')]
+        for number, case in enumerate(planned, 1):
+            audio, pcm, points, augmented = synthesize(case, sources, plan['profile'], stress=key.startswith('stress-'))
             started = time.perf_counter()
             grid = spatial_map(audio, settings, search)
             bearings = bearing_candidates(*grid, count=plan['profile']['candidate_count'])
@@ -181,8 +186,8 @@ def prepare(keys):
             grids.append(grid[2].astype(np.float32))
             soft.append(scores)
             raw.append(predictions.numpy().reshape(2, -1).max(axis=1))
-            if number % 20 == 0 or number == len(plan['plans'][key]):
-                print(key, number, '/', len(plan['plans'][key]), 'seconds', round(time.monotonic() - began), flush=True)
+            if number % 20 == 0 or number == len(planned):
+                print(key, number, '/', len(planned), 'seconds', round(time.monotonic() - began), flush=True)
         np.savez_compressed(path, contexts=np.asarray(contexts), grids=np.asarray(grids), teacher=np.asarray(soft),
                             old_float=np.asarray(raw), azimuths=grid[0], depressions=grid[1])
         write_json(OUTPUT / (key + '.json'), dict(plan_sha256=digest(OUTPUT / 'plan.json'),
@@ -194,7 +199,8 @@ def load_cache(key):
     metadata = load_json(OUTPUT / (key + '.json'))
     if metadata['plan_sha256'] != digest(OUTPUT / 'plan.json') or metadata['cache_sha256'] != digest(OUTPUT / (key + '.npz')):
         raise ValueError('Cache provenance mismatch')
-    if [{name: row[name] for name in case} for row, case in zip(metadata['rows'], plan['plans'][key])] != plan['plans'][key]:
+    planned = plan['plans'][key.replace('stress-', 'test-')]
+    if len(metadata['rows']) != len(planned) or [{name: row[name] for name in case} for row, case in zip(metadata['rows'], planned)] != planned:
         raise ValueError('Cached scene plan mismatch')
     with np.load(OUTPUT / (key + '.npz'), allow_pickle=False) as archive:
         data = {name: archive[name] for name in archive.files}
@@ -327,22 +333,28 @@ def score_fixed(key, directory, frontend, name):
         return result
     cases, data = load_cache(key)
     values = transform(data['contexts'], frontend)
-    scores, clipped, errors = [], 0, 0
+    scores, clipped, errors, invalid = [], 0, 0, 0
     started = time.monotonic()
     for index, scene in enumerate(values):
         beam_scores = []
+        unreliable = False
         for contexts in scene:
             codes, input_clips = cnn.input_codes(contexts, model['input_fraction'])
             if input_clips:
-                raise ValueError('Validation-calibrated integer input overflows')
+                errors += input_clips
+                unreliable = True
+                beam_scores.append(0.0)
+                continue
             results = [cnn.fixed_forward(model, code) for code in codes]
             clipped += sum(result['flags'] for result in results)
+            unreliable = unreliable or any(result['flags'] for result in results)
             beam_scores.append(max(result['probability'] for result in results) / 65536)
-        scores.append(beam_scores)
+        invalid += int(unreliable)
+        scores.append([0.0] * len(beam_scores) if unreliable else beam_scores)
         if (index + 1) % 40 == 0 or index + 1 == len(cases):
             print('Integer', name, key, index + 1, '/', len(cases), 'seconds', round(time.monotonic() - started), flush=True)
     result = dict(model_tag=model['model_tag'], frontend=frontend, scores=scores, activation_clipped_contexts=clipped,
-                  input_clips=errors, cache_sha256=digest(OUTPUT / (key + '.npz')),
+                  input_clips=errors, invalid_scenes=invalid, cache_sha256=digest(OUTPUT / (key + '.npz')),
                   processing_seconds=time.monotonic() - started)
     write_json(path, result)
     return result
@@ -362,6 +374,91 @@ def baseline():
               for name, scores in predictions.items()}
     write_json(OUTPUT / 'baseline-validation.json', result)
     print(json.dumps(result, indent=2), flush=True)
+
+
+def train_spectral():
+    """Try one fixed band-aware architecture before any test prediction."""
+    torch = configure()
+    if (OUTPUT / 'freeze.json').exists():
+        raise ValueError('Do not train additional candidates after test authorization')
+    if (OUTPUT / 'spectral_model/manifest.json').exists():
+        SpectralDetector(OUTPUT / 'spectral_model')
+        print('Reusing frozen spectral candidate', flush=True)
+        return
+    cases, data = load_cache('train-original')
+    validation, raw = validation_data()
+    values = band_features(data['contexts']).astype(np.float32)
+    valid = torch.from_numpy(band_features(raw).astype(np.float32))
+    teacher = torch.from_numpy(data['teacher'].astype(np.float32))
+    labels = torch.tensor([case['label'] for case in cases], dtype=torch.float32)
+    groups = [np.flatnonzero(np.asarray([case['dataset'] == domain and case['label'] == label for case in cases]))
+              for domain in ('HornBase', 'ESC50') for label in (0, 1)]
+    torch.manual_seed(0)
+    rng = np.random.default_rng(0)
+    model = torch.nn.Sequential(torch.nn.Linear(160, 48), torch.nn.ReLU(), torch.nn.Linear(48, 2))
+    settings = check_plan()['profile']['training']
+    optimizer = torch.optim.Adam(model.parameters(), lr=settings['learning_rate'])
+    history, best, state, selected, stale = [], None, None, None, 0
+    for epoch in range(settings['epochs']):
+        model.train()
+        losses = []
+        for batch in range(len(cases) // settings['batch_scenes']):
+            indices = np.concatenate([rng.choice(group, settings['batch_scenes'] // 4) for group in groups])
+            chosen = torch.from_numpy(values[indices][:, :, [0, 3, 6]])
+            logits = model(chosen)
+            differences = logits[..., 1] - logits[..., 0]
+            beams = differences.max(dim=2).values
+            scene = beams.max(dim=1).values
+            hard = torch.nn.functional.binary_cross_entropy_with_logits(scene, labels[indices])
+            soft = torch.nn.functional.binary_cross_entropy_with_logits(beams, teacher[indices])
+            ranking, count = scene.sum() * 0, 0
+            for row, index in enumerate(indices):
+                errors = [180 if item['azimuth'] is None else abs(wrap_angle(item['azimuth'] - cases[index]['angle']))
+                          for item in cases[index]['bearings']]
+                target = int(np.argmin(errors))
+                if labels[index] and errors[target] < 10 and teacher[index, target] > teacher[index, 1 - target]:
+                    ranking = ranking + torch.nn.functional.softplus(beams[row, 1 - target] - beams[row, target])
+                    count += 1
+            loss = hard + settings['teacher_weight'] * soft + settings['ranking_weight'] * ranking / max(1, count)
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
+            optimizer.step()
+            losses.append(float(loss.detach()))
+        model.eval()
+        with torch.inference_mode():
+            scores = torch.softmax(model(valid), dim=-1)[..., 1].max(dim=2).values.numpy()
+        gate = choose_gate(validation, scores, 'validation')
+        rank = (gate['constraint_met'], gate['macro_f1'], -gate['metrics']['negative_acceptance'])
+        history.append(dict(epoch=epoch + 1, loss=float(np.mean(losses)), gate=gate))
+        print('BandMLP', epoch + 1, 'validation macro F1', round(gate['macro_f1'], 4), flush=True)
+        if best is None or rank > best:
+            best, state, stale, selected = rank, deepcopy(model.state_dict()), 0, dict(epoch=epoch + 1, gate=gate)
+        else:
+            stale += 1
+        if stale >= settings['patience']:
+            break
+    model.load_state_dict(state)
+    model.eval()
+    directory = OUTPUT / 'spectral_model'
+    directory.mkdir(exist_ok=True)
+    np.savez(directory / 'weights.npz', weight0=state['0.weight'].numpy(), bias0=state['0.bias'].numpy(),
+             weight1=state['2.weight'].numpy(), bias1=state['2.bias'].numpy())
+    checksum = digest(directory / 'weights.npz')
+    metadata = dict(format=1, architecture='BandMLP-7826', model_tag=int(checksum[:8], 16), input_shape=[40, 24],
+                    sha256={'weights.npz': checksum}, selection=selected,
+                    provenance=dict(frontend='logmel', feature_transform='centered band mean/std/absolute-delta/range',
+                                    selection_split='validation', plan_sha256=digest(OUTPUT / 'plan.json'),
+                                    license_scope='research/noncommercial', evidence='synthetic beam distillation; no board/road validation'))
+    write_json(directory / 'manifest.json', metadata)
+    runtime = SpectralDetector(directory)
+    with torch.inference_mode():
+        reference = torch.softmax(model(valid), dim=-1)[..., 1].max(dim=2).values.numpy()
+    actual = np.asarray([[runtime.score(beam)['score'] for beam in scene] for scene in raw])
+    error = float(np.max(np.abs(actual - reference)))
+    if error > 1e-5:
+        raise ValueError('NumPy spectral inference disagrees with Torch')
+    write_json(OUTPUT / 'spectral-validation.json', dict(history=history, selected=selected, numpy_maximum_error=error))
 
 
 def export():
@@ -404,13 +501,15 @@ def freeze():
         print('Operating points already frozen', flush=True)
         return
     selection = load_json(OUTPUT / 'selection.json')['selected']
-    rows, predictions = [], {name: [] for name in ('old_integer', 'panns', 'recovered_integer')}
+    spectral = SpectralDetector(OUTPUT / 'spectral_model')
+    rows, predictions = [], {name: [] for name in ('old_integer', 'panns', 'recovered_integer', 'spectral_numpy')}
     inherited, provenance = {}, {}
     for protocol in check_plan()['profile']['protocols']:
         key = 'validation-' + protocol
         cases, data = load_cache(key)
         rows += cases
         predictions['panns'].extend(data['teacher'].tolist())
+        predictions['spectral_numpy'].extend([[spectral.score(beam)['score'] for beam in scene] for scene in data['contexts']])
         for name, directory, frontend in [('old_integer', BASE / 'fpga_model', 'logmel'),
                                          ('recovered_integer', OUTPUT / 'fpga_model', selection['frontend'])]:
             result = score_fixed(key, directory, frontend, name)
@@ -420,10 +519,17 @@ def freeze():
     gates = {name: choose_gate(rows, scores, 'validation') for name, scores in predictions.items()}
     inherited['old_integer'] = joint_metrics(rows, predictions['old_integer'], 0.65, 0.05)
     inherited['panns'] = joint_metrics(rows, predictions['panns'], 0.2, 0.0)
+    provenance['spectral_numpy'] = dict(model_tag=spectral.metadata['model_tag'], frontend='logmel',
+                                        manifest_sha256=digest(OUTPUT / 'spectral_model/manifest.json'))
     value = dict(plan_sha256=digest(OUTPUT / 'plan.json'), selection_sha256=digest(OUTPUT / 'selection.json'),
                  models=provenance, gates=gates, inherited_validation=inherited,
                  policy='shared validation-selected integer gates across original and visible; all test predictions deferred; no promotion from test scores')
     write_json(OUTPUT / 'freeze.json', value)
+    for name, directory in [('recovered_integer', OUTPUT / 'fpga_model'), ('spectral_numpy', OUTPUT / 'spectral_model')]:
+        config = load_json(ROOT / 'deployment/pynq_z2/config/default.json')
+        config['detector'].update(model_directory=str(directory), threshold=gates[name]['threshold'], margin=gates[name]['margin'],
+                                  backend='spectral' if name == 'spectral_numpy' else 'integer')
+        write_json(OUTPUT / (name + '-config.json'), config)
     print(json.dumps(gates, indent=2), flush=True)
 
 
@@ -480,7 +586,7 @@ def association_metrics(cases, data, scores, gate, rig):
     return dict(counts, details=details)
 
 
-def evaluate():
+def evaluate(stress=False):
     torch = configure()
     frozen = load_json(OUTPUT / 'freeze.json')
     if frozen['plan_sha256'] != digest(OUTPUT / 'plan.json') or frozen['selection_sha256'] != digest(OUTPUT / 'selection.json'):
@@ -491,9 +597,13 @@ def evaluate():
     model.load_state_dict(torch.load(OUTPUT / selection['checkpoint'], map_location='cpu', weights_only=True)['state'])
     reports = {}
     for protocol in check_plan()['profile']['protocols']:
-        key = 'test-' + protocol
+        key = ('stress-' if stress else 'test-') + protocol
         cases, data = load_cache(key)
         predictions = dict(panns=data['teacher'])
+        spectral = SpectralDetector(OUTPUT / 'spectral_model')
+        if digest(OUTPUT / 'spectral_model/manifest.json') != frozen['models']['spectral_numpy']['manifest_sha256']:
+            raise ValueError('Frozen spectral model changed')
+        predictions['spectral_numpy'] = np.asarray([[spectral.score(beam)['score'] for beam in scene] for scene in data['contexts']])
         integer = {}
         for name, directory, frontend in [('old_integer', BASE / 'fpga_model', 'logmel'),
                                          ('recovered_integer', OUTPUT / 'fpga_model', selection['frontend'])]:
@@ -524,7 +634,7 @@ def evaluate():
                 item['maximum_probability_error'] = float(np.abs(scores - float_scores).max())
             result['models'][name] = item
         reports[protocol] = result
-    write_json(OUTPUT / 'results.json', dict(freeze_sha256=digest(OUTPUT / 'freeze.json'), protocols=reports,
+    write_json(OUTPUT / ('stress-results.json' if stress else 'results.json'), dict(freeze_sha256=digest(OUTPUT / 'freeze.json'), protocols=reports,
                limits=check_plan()['limits'], evidence='synthetic array/camera/boxes from weakly labeled real clips; not FP/hour, live latency, or road validation'))
     report()
 
@@ -557,26 +667,31 @@ def report():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['plan', 'prepare', 'baseline', 'train', 'export', 'freeze', 'evaluate', 'report'])
+    parser.add_argument('command', choices=['plan', 'prepare', 'baseline', 'train', 'train-spectral', 'export', 'freeze', 'evaluate', 'report'])
+    parser.add_argument('--stress', action='store_true')
     parser.add_argument('--split', choices=['train', 'validation', 'test'], default='validation')
     args = parser.parse_args()
     if args.command == 'plan':
         freeze_plan()
     elif args.command == 'prepare':
+        if args.stress and args.split != 'test':
+            raise ValueError('Stress is a frozen test diagnostic, not a training option')
         if args.split == 'test' and not (OUTPUT / 'freeze.json').exists():
             raise ValueError('Freeze integer gates before scoring either test protocol')
-        prepare([args.split + '-' + protocol for protocol in check_plan()['profile']['protocols']
+        prepare([('stress' if args.stress else args.split) + '-' + protocol for protocol in check_plan()['profile']['protocols']
                  if args.split != 'train' or protocol == 'original'])
     elif args.command == 'train':
         train()
     elif args.command == 'baseline':
         baseline()
+    elif args.command == 'train-spectral':
+        train_spectral()
     elif args.command == 'export':
         export()
     elif args.command == 'freeze':
         freeze()
     elif args.command == 'evaluate':
-        evaluate()
+        evaluate(args.stress)
     elif args.command == 'report':
         report()
 

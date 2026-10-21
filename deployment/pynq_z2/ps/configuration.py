@@ -46,7 +46,7 @@ def validate_config(config):
     if not 0 < search['separation'] <= 180:
         raise ValueError('Invalid candidate separation')
     detector = config['detector']
-    if detector['backend'] not in ('fpga', 'integer') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
+    if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')
     if any(type(config['event'][key]) is not int or config['event'][key] <= 0 for key in ('confirm', 'release')):
         raise ValueError('Event counters must be positive integers')

@@ -9,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from ps.configuration import load_config
-from ps.dsp import Conditioning, beamform, candidates, features, spatial_map
+from ps.dsp import Conditioning, band_features, beamform, candidates, features, spatial_map
 from ps.geometry import Bearing
 
 from horn.calibration import StreamCalibration, remove_dc
@@ -71,6 +71,17 @@ def test_centered_frontend_removes_common_gain_without_altering_spectral_contras
     assert np.isfinite(features(np.zeros(48000), 'centered_logmel')).all()
     with pytest.raises(ValueError, match='frontend'):
         features(audio, 'unknown')
+
+
+def test_band_statistics_preserve_mel_position_and_match_analytic_ramp():
+    values = np.arange(40)[:, None] + np.arange(24)[None, :]
+    actual = band_features(values)
+    np.testing.assert_allclose(actual[:40], np.arange(40) - 19.5)
+    np.testing.assert_allclose(actual[40:80], np.sqrt((24 ** 2 - 1) / 12))
+    np.testing.assert_allclose(actual[80:120], 1)
+    np.testing.assert_allclose(actual[120:], 23)
+    np.testing.assert_allclose(band_features(values - 300), actual)
+    assert not np.array_equal(band_features(values[::-1]), actual)
 
 
 def test_geometry_generation_is_reproducible_and_board_syntax_is_compatible():

@@ -213,12 +213,13 @@ def visual_trials(rig, cameras, seed, output, association):
     return summary, examples
 
 
-def source_waveform(record):
+def source_waveform(record, condition=True):
     checksum = digest(Path(record["path"]))
     if record.get("sha256") != checksum:
         raise ValueError("A recording no longer matches the frozen source manifest")
     audio = read_audio(record["path"], 48000, channel=0)
-    audio, _ = remove_dc(audio)
+    if condition:
+        audio, _ = remove_dc(audio)
     signal = audio[:, 0]
     if len(signal) < 48000:
         raise ValueError("Simulation recordings must contain one complete second")
@@ -242,7 +243,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
                       key=lambda item: item["file"])
     horns = [item for item in selected if item["label"] == 1][:2]
     backgrounds = [next(item for item in selected if item["category"] == category) for category in ("engine", "siren")]
-    sources = [source_waveform(item) for item in horns + backgrounds]
+    sources = [source_waveform(item, condition=settings['pcm_rms'] is None) for item in horns + backgrounds]
     if len(horns) != 2:
         raise ValueError("Two existing ESC50 test horn recordings are required")
     if settings["classifier"] == "tiny":

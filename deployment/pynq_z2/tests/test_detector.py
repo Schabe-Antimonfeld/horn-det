@@ -2,6 +2,8 @@ import ast
 import importlib.util
 from pathlib import Path
 import sys
+import json
+import hashlib
 
 import numpy as np
 import pytest
@@ -36,3 +38,27 @@ def test_board_integer_matches_real_trained_golden_vectors():
         assert inference['score'] == (words[5] & 65535) / 65536.0
     with pytest.raises(ValueError, match='calibrated'):
         detector.infer(np.full((40, 24), 100000.0))
+
+
+def test_numpy_spectral_model_matches_analytic_logits_and_checks_integrity(tmp_path):
+    from ps.detector import SpectralDetector
+    weights = np.zeros((48, 160), dtype=np.float32)
+    weights[0, 39] = 0.1
+    head = np.zeros((2, 48), dtype=np.float32)
+    head[1, 0] = 2
+    np.savez(tmp_path / 'weights.npz', weight0=weights, bias0=np.zeros(48), weight1=head, bias1=np.zeros(2))
+    checksum = hashlib.sha256((tmp_path / 'weights.npz').read_bytes()).hexdigest()
+    metadata = dict(format=1, architecture='BandMLP-7826', model_tag=int(checksum[:8], 16), sha256={'weights.npz': checksum})
+    (tmp_path / 'manifest.json').write_text(json.dumps(metadata), encoding='utf-8')
+    model = SpectralDetector(tmp_path)
+    values = (np.arange(40)[:, None] + np.zeros((40, 24)))[None]
+    assert model.score(values)['score'] == pytest.approx(1 / (1 + np.exp(-3.9)), abs=1e-8)
+    assert model.score(values[:, ::-1])['score'] == pytest.approx(0.5)
+    assert model.score([])['score'] == 0
+    with pytest.raises(ValueError, match='N x'):
+        model.score(values[0])
+    with pytest.raises(ValueError, match='finite'):
+        model.score(values * np.nan)
+    (tmp_path / 'weights.npz').write_bytes(b'corrupt')
+    with pytest.raises(ValueError, match='checksum'):
+        SpectralDetector(tmp_path)

@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ps.configuration import load_config
 from ps.pipeline import Events, Pipeline
 from ps.vision import decode_boxes
+from ps.geometry import Bearing
 
 
 def test_event_confirmation_and_skipped_windows_reset_evidence():
@@ -66,3 +67,54 @@ def test_outside_wide_camera_view_does_not_assign_visible_vehicles(tmp_path):
     result = pipeline.capture(event, None, Cache(), None, tmp_path, 0)
     assert result['visibility'] == 'outside_camera_view' and result['photos'] == 0
     assert result['association']['source_unexplained'] and not result['association']['groups']
+
+
+def test_ambiguous_directions_keep_horn_event_and_both_hypotheses(monkeypatch, tmp_path):
+    import ps.pipeline as module
+    grid = (np.arange(-180, 180, 2), np.arange(0, 91, 3), np.ones((180, 31)))
+    monkeypatch.setattr(module, 'spatial_map', lambda *args: grid)
+    monkeypatch.setattr(module, 'candidates', lambda *args: [Bearing(0, 20, 2), Bearing(180, 20, 1)])
+    monkeypatch.setattr(module, 'beamform', lambda *args: (np.zeros(48000), 32))
+    class Detector:
+        def __init__(self):
+            self.index = 0
+        def score(self, contexts):
+            self.index += 1
+            return dict(score=0.9 if self.index % 2 else 0.88, clipped=False)
+    config = load_config()
+    pipeline = Pipeline(config, Detector())
+    snapshot = dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False)
+    event, evidence = pipeline.analyze(snapshot)
+    assert event['horn_candidate'] and not event['doa_valid'] and event['azimuth'] is None
+    assert event['acoustic_state'] == 'ambiguous_direction' and len(event['direction_candidates']) == 2
+    assert evidence is not None
+    snapshot['end'] += config['audio']['update_samples']
+    event, evidence = pipeline.analyze(snapshot)
+    assert event['state'] == 'CONFIRMED'
+    result = pipeline.capture(event, evidence, None, None, tmp_path, 0)
+    assert result['selected_cameras'] == ['wide-0'] and result['photos'] == 0
+    assert result['visibility'] == 'partly_outside_camera_view'
+    assert len(result['association']['acoustic_hypotheses']) == 2
+    snapshot['clipped'] = True
+    event, evidence = pipeline.analyze(snapshot)
+    assert not event['horn_candidate'] and event['acoustic_state'] == 'invalid_audio' and evidence is None
+    snapshot['clipped'] = False
+    config['detector']['margin'] = 0
+    monkeypatch.setattr(Detector, 'score', lambda *args: dict(score=0.9, clipped=False))
+    event, _ = pipeline.analyze(snapshot)
+    assert event['horn_candidate'] and not event['doa_valid'] and len(event['direction_candidates']) == 2
+
+
+def test_frontend_overflow_abstains_without_terminating_service(monkeypatch):
+    import ps.pipeline as module
+    from ps.detector import FrontendOverflow
+    monkeypatch.setattr(module, 'spatial_map', lambda *args: None)
+    monkeypatch.setattr(module, 'candidates', lambda *args: [Bearing(0, 20, 1)])
+    monkeypatch.setattr(module, 'beamform', lambda *args: (np.zeros(48000), 32))
+    class Detector:
+        def score(self, contexts):
+            raise FrontendOverflow('Outside calibrated input range')
+    pipeline = Pipeline(load_config(), Detector())
+    event, evidence = pipeline.analyze(dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False))
+    assert event['frontend_clipped'] and not event['activation_clipped']
+    assert event['acoustic_state'] == 'invalid_audio' and not event['horn_candidate'] and evidence is None

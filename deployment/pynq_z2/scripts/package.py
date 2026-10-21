@@ -10,7 +10,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from ps.integer_kernel import check_export
+from ps.detector import validate_model
 
 
 def digest(path):
@@ -24,13 +24,22 @@ def verify(directory):
         path = directory / name
         if Path(name).is_absolute() or '..' in Path(name).parts or digest(path) != checksum:
             raise ValueError('Bundle integrity failure: ' + name)
-    check_export(directory / 'model')
+    validate_model(directory / 'model')
     return manifest
 
 
-def package(model, output, bitstream=None, handoff=None):
+def package(model, output, bitstream=None, handoff=None, configuration=None):
     model, output = Path(model).resolve(), Path(output).resolve()
-    metadata = check_export(model)
+    metadata = validate_model(model)
+    config = None
+    if configuration is not None:
+        from ps.configuration import load_config
+        config = load_config(configuration)
+        if (config['detector']['backend'] == 'spectral') != (metadata['architecture'] == 'BandMLP-7826'):
+            raise ValueError('Package backend and model architecture disagree')
+        config['detector']['model_directory'] = 'model'
+    elif metadata['architecture'] == 'BandMLP-7826' or metadata.get('provenance', {}).get('plan_sha256'):
+        raise ValueError('Recovery models require their frozen operating configuration')
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a new empty bundle directory')
     if bool(bitstream) != bool(handoff):
@@ -45,6 +54,8 @@ def package(model, output, bitstream=None, handoff=None):
         (output / folder).mkdir(exist_ok=True)
         for path in (ROOT / folder).glob(pattern):
             shutil.copy2(str(path), str(output / folder / path.name))
+    if config is not None:
+        (output / 'config/default.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
     vendor = ROOT / 'vendor/fpga'
     if not vendor.is_dir():
         vendor = ROOT.parents[1] / 'fpga'
@@ -85,9 +96,10 @@ def main():
     parser.add_argument('--output')
     parser.add_argument('--bitstream')
     parser.add_argument('--handoff')
+    parser.add_argument('--config')
     parser.add_argument('--verify')
     args = parser.parse_args()
-    result = verify(args.verify) if args.verify else package(args.model, args.output, args.bitstream, args.handoff)
+    result = verify(args.verify) if args.verify else package(args.model, args.output, args.bitstream, args.handoff, args.config)
     print(json.dumps({'model_tag': result['model_tag'], 'files': len(result['files']),
                       'firmware_included': result['firmware_included'], 'board_validated': False}))
 
