@@ -2,6 +2,10 @@
 
 鸣笛恢复实验使用 `profiles/horn_recovery.json` 冻结来源划分、声压数字幅度代理和双测试协议；`src/horn/recovery.py` 保证整场景/全部通道共用增益，经 PCM16 编解码后再提取特征。`simulate_surround.py` 默认目标 RMS 为 0.075，并按混合峰值保留余量；`--legacy-scale` 仅重放旧的非物理幅度诊断。声学噪声和视觉观测采用独立随机流，所以该选项不承诺逐样本复现旧报告。数字 RMS 不是经标定的 SPL。可见协议在合成前选定投影有效的目标位置，不按检测成功与否筛选。
 
+`improve_detector.py` 将恢复流程纳入可复现源码：依次运行 `plan`、`prepare --split train`、`prepare --split validation`、`baseline`、`train`、`export`、`freeze`、`prepare --split test`、`evaluate`。产物独立放入忽略目录 `outputs/horn_recovery_v1/`；复用 `outputs/horn_detector_v1/` 的真实录音清单和已训练模型，只读校验哈希，不下载数据或新增依赖。训练为 504 个场景；验证/测试各有原 360°、合成前限定可见两组，每组 84 正例＋84 负例。两协议共用一个验证门限。已探索过的来源划分不能称为新盲测；HornBase 场景分组仍共享父录音。
+
+两个前端候选为原始 `logmel` 与完成上下文去全局均值的 `centered_logmel`，后者消除常数 log 能量偏置但不消除噪声/频响变化，也需要重训。部署由模型 manifest 的 provenance.frontend 自动选择前端，旧 manifest 默认 `logmel`；不要只替换权重而沿用错误前端。1834 参数结构和 RTL 协议保持一致，新增模型仍须整数/RTL 对拍。PANNs 仅作 PC 冻结教师与对照，不作为 ARM 实时替代。
+
 main单摄像头扩展：`simulate_surround.py --profile profiles/gc2093_single.json --output outputs/gc2093_single_v1`复用板端同款Tiny CNN整数参考及真实录音合成阵列；`--geometry-only`仅检查几何/解析关联。该profile的镜头参数人为构造且标记simulation_only，不是真实GC2093标定。结果与限制见[广角适配说明](../deployment/pynq_z2/CAMERA.md)，原多相机版本冻结于legacy分支。未指定profile时仍沿用原多相机/PANNs研究默认值，PANNs不在板端运行。
 
 使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。完整模型与测试使用 `uv run --extra learning pytest`，CPU PyTorch 与 scikit-learn 在 learning extra 中；依赖版本由 `uv.lock` 固定。以下含模型的命令均携带 `--extra learning`，防止 uv 自动同步时移除可选依赖。

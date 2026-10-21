@@ -1,8 +1,11 @@
 import numpy as np
 import pytest
+import importlib.util
+from pathlib import Path
 
 from horn.recovery import choose_gate, pcm_roundtrip, visible_target, camera_rig, scene_plan
 from horn.surround import wrap_angle
+from horn.recovery import joint_metrics
 
 
 def test_common_pcm_gain_preserves_channels_and_has_bounded_quantization_error():
@@ -55,3 +58,41 @@ def test_protocols_pair_audio_conditions_and_select_visibility_before_scoring():
             assert first[name] == second[name]
         assert wrap_angle(first['angle'] - first['other']) == pytest.approx(wrap_angle(second['angle'] - second['other']))
         assert visible_target(camera_rig(), second['angle'], second['radius'])
+
+
+def test_wrong_direction_counts_as_false_positive_and_false_negative():
+    case = dict(label=1, angle=0, bearings=[dict(azimuth=90, depression=20, response=1)])
+    result = joint_metrics([case], [[0.9]], 0.5, 0)
+    assert (result['tp'], result['fp'], result['fn'], result['wrong_direction']) == (0, 1, 1, 1)
+    with pytest.raises(ValueError, match='score list'):
+        joint_metrics([case], [], 0.5, 0)
+
+
+def experiment():
+    path = Path(__file__).resolve().parents[1] / 'improve_detector.py'
+    spec = importlib.util.spec_from_file_location('recovery_experiment', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_synthesis_replays_pcm_and_never_uses_vision_random_numbers():
+    module = experiment()
+    time = np.arange(48000) / 48000
+    sources = dict(horn=(np.sin(2 * np.pi * 700 * time), 0), engine=(np.sin(2 * np.pi * 160 * time), 0))
+    profile = module.load_json(module.PROFILE)
+    case = dict(target='horn', interferer='engine', angle=30, other=-70, radius=15,
+                sir_db=-5, noise_seed=42, visual_seed=1, split='validation', pair=0, target_rms=0.075)
+    first, pcm, _, augmented = module.synthesize(case, sources, profile)
+    second, other, _, _ = module.synthesize(dict(case, visual_seed=999), sources, profile)
+    np.testing.assert_array_equal(first, second)
+    assert pcm == other and not augmented and first.shape == (48000, 14)
+    assert pcm['clipped_samples'] == 0 and pcm['peak'] <= 0.9001
+    assert not np.array_equal(first, module.synthesize(case, sources, profile, stress=True)[0])
+
+
+def test_weak_scene_detection_is_separate_from_direction_correctness():
+    module = experiment()
+    cases = [dict(label=1), dict(label=0)]
+    metric = module.detection_metrics(cases, np.array([[0.1, 0.9], [0.1, 0.2]]), 0.5)
+    assert metric['f1'] == 1 and metric['tp'] == 1

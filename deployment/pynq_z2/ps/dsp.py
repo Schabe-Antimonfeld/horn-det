@@ -148,7 +148,9 @@ def beamform(audio, bearing, settings):
     return output / audio.shape[1], common
 
 
-def features(waveform):
+def features(waveform, frontend='logmel'):
+    if frontend not in ('logmel', 'centered_logmel'):
+        raise ValueError('Unsupported trained frontend')
     edges = 700 * (10 ** (np.linspace(0, 2595 * np.log10(1 + 24000 / 700), 42) / 2595) - 1)
     frequency = np.fft.rfftfreq(1024, 1 / 48000)
     bank = np.maximum(0, np.minimum((frequency[None, :] - edges[:-2, None]) / (edges[1:-1, None] - edges[:-2, None]),
@@ -158,4 +160,7 @@ def features(waveform):
     if len(logarithms) < 24:
         return np.empty((0, 40, 24))
     starts = sorted(set(range(0, len(logarithms) - 24 + 1, 12)) | {len(logarithms) - 24})
-    return np.asarray([logarithms[start:start + 24].T for start in starts])
+    contexts = np.asarray([logarithms[start:start + 24].T for start in starts])
+    if frontend == 'centered_logmel':
+        contexts -= contexts.mean(axis=(1, 2), keepdims=True)
+    return contexts

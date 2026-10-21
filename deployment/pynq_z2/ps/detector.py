@@ -8,6 +8,9 @@ from ps.integer_kernel import check_export, fixed_forward, input_codes, load_fix
 class Detector:
     def __init__(self, directory, device=None):
         self.metadata = check_export(directory)
+        self.frontend = self.metadata.get('provenance', {}).get('frontend', 'logmel')
+        if self.frontend not in ('logmel', 'centered_logmel'):
+            raise ValueError('Unsupported model frontend')
         self.model = load_fixed(directory) if device is None else None
         self.device = device
 

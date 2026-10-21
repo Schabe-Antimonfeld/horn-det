@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -57,6 +58,19 @@ def test_feature_order_and_scale_match_trained_frontend():
     assert actual.shape[1:] == (40, 24)
     silence = spatial_map(np.zeros((2048, 14)), load_config()['audio'], load_config()['search'])
     assert candidates(silence) == []
+
+
+def test_centered_frontend_removes_common_gain_without_altering_spectral_contrast():
+    audio = np.random.default_rng(42).normal(0, 0.01, 48000)
+    expected = features(audio, 'centered_logmel')
+    for gain in (0.01, 0.1, 10):
+        np.testing.assert_allclose(features(audio * gain, 'centered_logmel'), expected, atol=1e-5)
+    raw = features(audio)
+    np.testing.assert_allclose(expected, raw - raw.mean(axis=(1, 2), keepdims=True))
+    np.testing.assert_allclose(expected.mean(axis=(1, 2)), 0, atol=1e-12)
+    assert np.isfinite(features(np.zeros(48000), 'centered_logmel')).all()
+    with pytest.raises(ValueError, match='frontend'):
+        features(audio, 'unknown')
 
 
 def test_geometry_generation_is_reproducible_and_board_syntax_is_compatible():

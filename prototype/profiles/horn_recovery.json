@@ -7,6 +7,8 @@
   "sir_db": [-5.0, 0.0, 5.0],
   "noise_snr_db": 25.0,
   "candidate_count": 2,
+  "frontends": ["logmel", "centered_logmel"],
+  "stress": {"gain_db": [-12, 12], "reflection_gain": 0.25, "channel_gain_db": 1.0, "residual_delay_samples": 0.15},
   "training": {"seeds": [0, 17], "epochs": 20, "patience": 6, "batch_scenes": 8, "learning_rate": 0.0003,
                "teacher_weight": 0.5, "ranking_weight": 0.1, "contexts_per_beam": 3},
   "selection": "validation macro joint-direction F1; prefer negative acceptance <= 0.1; shared gate across protocols",

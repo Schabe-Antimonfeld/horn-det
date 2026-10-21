@@ -58,7 +58,7 @@ class Pipeline:
         scores, clipped = [], []
         for bearing in bearings:
             waveform, latency = beamform(snapshot['audio'], bearing, self.config['audio'])
-            result = self.detector.score(features(waveform))
+            result = self.detector.score(features(waveform, getattr(self.detector, 'frontend', 'logmel')))
             scores.append(result['score'])
             clipped.append(result['clipped'])
         order = np.argsort(-np.asarray(scores), kind='stable')
