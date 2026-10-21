@@ -15,6 +15,8 @@ def test_default_contract():
     assert config['audio']['window_samples'] == 94 * 512
     assert config['audio']['update_samples'] == 47 * 512
     assert config['association']['method'] == 'spatial'
+    assert config['camera']['layout'] == 'single' and config['camera']['count'] == 1
+    assert config['camera']['calibration'] is None
 
 
 @pytest.mark.parametrize('section,key,value', [('audio', 'channels', 8), ('audio', 'window_samples', 48000),

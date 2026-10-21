@@ -11,6 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_config(path=None):
     with open(str(path or ROOT / 'config/default.json'), encoding='utf-8') as stream:
         config = json.load(stream)
+    calibration = config['camera'].get('calibration')
+    if isinstance(calibration, str):
+        location = Path(calibration)
+        if not location.is_absolute():
+            location = ROOT / location
+        with location.open(encoding='utf-8') as stream:
+            config['camera']['calibration'] = json.load(stream)
     validate_config(config)
     return config
 
@@ -56,9 +63,11 @@ def validate_config(config):
     if config['vision']['enabled'] and not config['camera']['sources']:
         raise ValueError('Vision requires configured cameras')
     identities = [source['id'] for source in camera['sources']]
-    allowed = {'ring-' + str(index) for index in range(camera['count'])} | {'down'}
+    allowed = {'wide-0'} if camera.get('layout') == 'single' else {'ring-' + str(index) for index in range(camera['count'])} | {'down'}
     if len(set(identities)) != len(identities) or set(identities) - allowed:
         raise ValueError('Camera sources must reference distinct configured camera IDs')
+    if config['vision']['enabled'] and camera.get('layout') == 'single' and camera.get('calibration') is None:
+        raise ValueError('Wide-angle vision requires measured lens calibration')
     if config['hardware']['timeout'] <= 0:
         raise ValueError('Hardware timeout must be positive')
     for key in ('gains', 'delays'):

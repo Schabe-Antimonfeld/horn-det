@@ -1,5 +1,7 @@
 # PYNQ-Z2 独立部署实现
 
+main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。默认相机为wide-0、1920×1080、厂商标称HFOV144°/VFOV77.6°；布局single不附带下视相机，不提供360°视觉覆盖。未标定时仅允许音频运行/名义几何演示；启用视觉必须提供实测calibration，支持brown或fisheye模型，尺寸不符会拒绝运行。相机中心为(offset_x,offset_y,height+offset_z)，height仍是阵列离地高度，yaw/pitch/roll为待实测安装角。
+
 目标：Vivado 2019.2、XC7Z020、14 路/48 kHz/直径0.24 m阵列，Python运行在ARM PS。该目录不依赖PC原型的Python3.12或PyTorch；板端源码保持Python3.6语法兼容，实际镜像版本待合作者确认。
 
 部署路径：PL采集及Tiny CNN，可选批量SRP插值累加；PS连续接收、FFT/PHAT/GCC、方向延时查表、候选波束、事件、相机与空间关联。SRP默认仍由NumPy累加，板上测速后再决定是否开启PL后端。PANNs不属于本板端路径；不能把PC耗时当作ARM实时性能。

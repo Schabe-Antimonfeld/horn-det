@@ -9,7 +9,7 @@ import pytest
 
 from horn.config import Config
 from horn.geometry import circular_array
-from horn.surround import (AcousticEvidence, Association, Bearing, CameraModel, Detection, Rig, associate,
+from horn.surround import (AcousticEvidence, Association, Bearing, CameraModel, Detection, Lens, Rig, associate,
                            FrozenPanns, bearing_candidates, coverage_grid, direction_vectors, form_beam,
                            propagate_audio, route_cameras, select_bearing, spatial_response,
                            vehicle_box, wrap_angle)
@@ -43,6 +43,49 @@ def test_upward_and_outside_rays_are_rejected():
     assert valid.tolist() == [False, False, True]
     pixels, valid = camera.project([[-10, 0, 6]])
     assert not valid[0] and np.isnan(pixels).all()
+
+
+@pytest.mark.parametrize("model,coefficients,angle", [("fisheye", [0.01, -0.001, 0, 0], 83),
+                                                     ("brown", [-0.02, 0.001, 0.0003, -0.0002, 0.00001], 65)])
+def test_calibrated_lens_roundtrip_and_ground_coordinates(model, coefficients, angle):
+    lens = Lens(model, [[600, 0, 952], [0, 605, 537], [0, 0, 1]], coefficients, 1920, 1080, angle)
+    normalized = np.array([[0, 0], [0.8, -0.3], [-1.1, 0.2], [0.1, 0.4]])
+    pixels, supported = lens.project(normalized)
+    recovered, valid = lens.unproject(pixels)
+    assert valid.all() and supported.all()
+    np.testing.assert_allclose(recovered, normalized, atol=1e-9)
+    camera = CameraModel("wide-0", (0.2, -0.1, 6.1), 25, 42, 144, 77.6, 1920, 1080, lens, 5)
+    points = np.array([[10, 2, 0], [12, 6, 0], [7, -2, 0]])
+    pixels, visible = camera.project(points)
+    ground, valid = camera.ground(pixels)
+    assert visible.all() and valid.all()
+    np.testing.assert_allclose(ground, points, atol=1e-8)
+
+
+def test_zero_fisheye_coefficients_follow_equidistant_not_pinhole_projection():
+    lens = Lens("fisheye", [[500, 0, 960], [0, 500, 540], [0, 0, 1]], [0] * 4, 1920, 1080)
+    pixel, valid = lens.project(np.array([[np.sqrt(3), 0]]))
+    np.testing.assert_allclose(pixel, [[960 + 500 * np.pi / 3, 540]])
+    assert valid.all()
+    _, valid = lens.unproject(np.array([[1900, 0]]))
+    assert not valid[0]
+
+
+def test_lens_rejects_folded_mapping_and_resolution_changes():
+    with pytest.raises(ValueError, match="folds"):
+        Lens("fisheye", [[500, 0, 960], [0, 500, 540], [0, 0, 1]], [-1, 0, 0, 0], 1920, 1080)
+    with pytest.raises(ValueError, match="invertible"):
+        Lens("brown", [[500, 0, 960], [0, 500, 540], [0, 0, 1]], [-0.3, 0, 0, 0, 0], 1920, 1080)
+    lens = Lens("fisheye", [[500, 0, 960], [0, 500, 540], [0, 0, 1]], [0] * 4, 1920, 1080)
+    with pytest.raises(ValueError, match="size"):
+        CameraModel("wrong-mode", (0, 0, 6), 0, 40, 144, 77.6, 1280, 720, lens)
+
+
+def test_single_camera_has_no_down_camera_or_rear_coverage():
+    rig = Rig(layout="single", count=1, hfov=144, vfov=77.6, width=1920, image_height=1080)
+    assert [camera.identity for camera in rig.cameras()] == ["wide-0"]
+    assert route_cameras(rig, 0) == ["wide-0"]
+    assert route_cameras(rig, 180) == []
 
 
 @pytest.mark.parametrize("changes", [{"count": 0}, {"count": 2.5}, {"height": -1},

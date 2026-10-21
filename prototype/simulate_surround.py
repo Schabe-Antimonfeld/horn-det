@@ -396,7 +396,7 @@ def main():
         raise ValueError("Unknown profile sections")
     values = dict(profile.get("rig", {}))
     for key in asdict(Rig()):
-        value = getattr(arguments, "cameras" if key == "count" else key)
+        value = getattr(arguments, "cameras" if key == "count" else key, None)
         if value is not None:
             values[key] = value
     rig = Rig(**values)

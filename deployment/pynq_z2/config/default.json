@@ -4,7 +4,7 @@
   "search": {"backend": "numpy", "azimuth_step": 2, "depression_step": 3, "candidates": 2, "separation": 12, "block_directions": 128},
   "detector": {"threshold": 0.65, "margin": 0.05, "model_directory": "model", "backend": "fpga"},
   "event": {"confirm": 2, "release": 2},
-  "camera": {"count": 6, "height": 6.0, "pitch": 40.0, "hfov": 90.0, "vfov": 70.0, "down_hfov": 120.0, "down_vfov": 100.0, "yaw": 0.0, "width": 1280, "image_height": 720, "minimum_range": 1.0, "maximum_range": 40.0, "horn_height": 0.8, "sources": []},
+  "camera": {"layout": "single", "count": 1, "height": 6.0, "pitch": 40.0, "hfov": 144.0, "vfov": 77.6, "down_hfov": 120.0, "down_vfov": 100.0, "yaw": 0.0, "roll": 0.0, "offset": [0.0, 0.0, 0.0], "width": 1920, "image_height": 1080, "minimum_range": 1.0, "maximum_range": 40.0, "horn_height": 0.8, "calibration": null, "sources": [{"id": "wide-0", "uri": "/dev/video0", "backend": "usb", "width": 1920, "height": 1080, "fps": 30, "fourcc": "MJPG"}]},
   "association": {"method": "spatial", "angle_gate": 6.0, "depression_gate": 3.0, "height_error": 0.5, "position_error": 0.75, "response_fraction": 0.85, "maximum_width": 12.0, "maximum_skew": 0.5, "merge_distance": 0.75, "speed": 343.0},
   "hardware": {"overlay": "firmware/horn_cnn.bit", "timeout": 2.0},
   "vision": {"enabled": false, "model": "", "configuration": "", "sha256": "", "input_size": 320, "threshold": 0.5, "nms": 0.45, "classes": [2, 3, 5, 7], "pixel_order": "RGB", "output": "yolo_xywh_classes"}

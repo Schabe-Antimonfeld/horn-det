@@ -21,6 +21,115 @@ def wrap_angle(value):
 
 
 @dataclass(frozen=True)
+class Lens:
+    """Calibrated OpenCV Brown or fisheye projection on the original image grid."""
+
+    model: str
+    matrix: tuple
+    coefficients: tuple
+    width: int
+    height: int
+    maximum_angle: float = 80.0
+
+    def __post_init__(self):
+        matrix = np.asarray(self.matrix, dtype=float)
+        coefficients = np.asarray(self.coefficients, dtype=float)
+        expected = {"brown": 5, "fisheye": 4}
+        if self.model not in expected or coefficients.shape != (expected[self.model],):
+            raise ValueError("Lens requires brown(5) or fisheye(4) coefficients")
+        if matrix.shape != (3, 3) or not np.isfinite(matrix).all() or not np.isfinite(coefficients).all():
+            raise ValueError("Lens parameters must be finite")
+        if not np.array_equal(matrix[2], [0, 0, 1]) or matrix[0, 1] != 0 or matrix[1, 0] != 0 or min(matrix[0, 0], matrix[1, 1]) <= 0:
+            raise ValueError("Lens requires positive focal lengths and zero skew")
+        if any(type(value) is not int or value <= 0 for value in (self.width, self.height)):
+            raise ValueError("Calibration image dimensions must be positive integers")
+        if not 0 <= matrix[0, 2] < self.width or not 0 <= matrix[1, 2] < self.height:
+            raise ValueError("Principal point must be on the calibration image")
+        if not np.isfinite(self.maximum_angle) or not 0 < self.maximum_angle < 89:
+            raise ValueError("Calibrated ray angle must be in (0,89) degrees")
+        if self.model == "fisheye":
+            theta = np.linspace(0, np.deg2rad(self.maximum_angle), 1025)
+            derivative = np.ones_like(theta)
+            for index, value in enumerate(coefficients):
+                derivative += (2 * index + 3) * value * theta ** (2 * index + 2)
+            if np.any(derivative <= 0):
+                raise ValueError("Fisheye mapping folds inside the calibrated domain")
+        else:
+            first, second, tangent_x, tangent_y, third = coefficients
+            radius = np.tan(np.deg2rad(self.maximum_angle))
+            for polynomial in ([1, first, second, third], [1, 3 * first, 5 * second, 7 * third]):
+                roots = np.roots([3 * polynomial[3], 2 * polynomial[2], polynomial[1]])
+                locations = [0, radius ** 2] + [value.real for value in roots if abs(value.imag) < 1e-10 and 0 < value.real < radius ** 2]
+                minimum = np.polynomial.polynomial.polyval(locations, polynomial).min()
+                if minimum <= 12 * (abs(tangent_x) + abs(tangent_y)) * radius:
+                    raise ValueError("Brown mapping lacks an invertible calibrated domain; reduce maximum_angle")
+
+    @classmethod
+    def from_record(cls, record):
+        if not isinstance(record, dict) or record.get("format") != 1:
+            raise ValueError("Unsupported lens calibration format")
+        return cls(**{name: record[name] for name in
+                      ("model", "matrix", "coefficients", "width", "height", "maximum_angle")})
+
+    def distort(self, points):
+        points = np.asarray(points, dtype=float)
+        radius = np.linalg.norm(points, axis=1)
+        if self.model == "fisheye":
+            theta = np.arctan(radius)
+            angle = theta.copy()
+            for index, value in enumerate(self.coefficients):
+                angle += value * theta ** (2 * index + 3)
+            return points * np.divide(angle, radius, out=np.ones_like(radius), where=radius > 0)[:, None]
+        x, y = points.T
+        square = radius ** 2
+        first, second, tangent_x, tangent_y, third = self.coefficients
+        radial = 1 + first * square + second * square ** 2 + third * square ** 3
+        return np.column_stack((x * radial + 2 * tangent_x * x * y + tangent_y * (square + 2 * x ** 2),
+                                y * radial + tangent_x * (square + 2 * y ** 2) + 2 * tangent_y * x * y))
+
+    def project(self, points):
+        matrix = np.asarray(self.matrix)
+        valid = np.arctan(np.linalg.norm(points, axis=1)) <= np.deg2rad(self.maximum_angle)
+        pixels = self.distort(points) * [matrix[0, 0], matrix[1, 1]] + matrix[:2, 2]
+        return pixels, valid & np.isfinite(pixels).all(axis=1)
+
+    def unproject(self, pixels):
+        matrix = np.asarray(self.matrix)
+        observed = (pixels - matrix[:2, 2]) / [matrix[0, 0], matrix[1, 1]]
+        if self.model == "fisheye":
+            radius = np.linalg.norm(observed, axis=1)
+            low, high = np.zeros(len(pixels)), np.full(len(pixels), np.deg2rad(self.maximum_angle))
+            for _ in range(50):
+                middle = (low + high) / 2
+                mapped = middle.copy()
+                for index, value in enumerate(self.coefficients):
+                    mapped += value * middle ** (2 * index + 3)
+                smaller = mapped < radius
+                low = np.where(smaller, middle, low)
+                high = np.where(smaller, high, middle)
+            angle = (low + high) / 2
+            points = observed * np.divide(np.tan(angle), radius, out=np.ones_like(radius), where=radius > 0)[:, None]
+        else:
+            points = observed.copy()
+            for _ in range(40):
+                mapped = self.distort(points)
+                error = mapped - observed
+                first = (self.distort(points + [1e-6, 0]) - mapped) / 1e-6
+                second = (self.distort(points + [0, 1e-6]) - mapped) / 1e-6
+                determinant = first[:, 0] * second[:, 1] - second[:, 0] * first[:, 1]
+                safe = np.abs(determinant) > 1e-10
+                denominator = np.where(safe, determinant, 1)
+                step = np.column_stack(((second[:, 1] * error[:, 0] - second[:, 0] * error[:, 1]) / denominator,
+                                        (first[:, 0] * error[:, 1] - first[:, 1] * error[:, 0]) / denominator))
+                points -= np.clip(step, -0.5, 0.5) * safe[:, None]
+                points = np.clip(points, -np.tan(np.deg2rad(self.maximum_angle)), np.tan(np.deg2rad(self.maximum_angle)))
+        residual = np.linalg.norm(self.distort(points) - observed, axis=1)
+        valid = np.isfinite(points).all(axis=1) & (residual < 1e-8)
+        valid &= np.arctan(np.linalg.norm(points, axis=1)) <= np.deg2rad(self.maximum_angle) + 1e-12
+        return points, valid
+
+
+@dataclass(frozen=True)
 class CameraModel:
     identity: str
     center: tuple[float, float, float]
@@ -30,6 +139,8 @@ class CameraModel:
     vfov: float
     width: int = 1280
     height: int = 720
+    lens: Lens | None = None
+    roll: float = 0.0
 
     def __post_init__(self):
         if len(self.center) != 3 or not np.isfinite(self.center).all() or self.center[2] <= 0:
@@ -40,13 +151,20 @@ class CameraModel:
             raise ValueError("Invalid camera pitch or field of view")
         if any(type(value) is not int or value <= 0 for value in (self.width, self.height)):
             raise ValueError("Image dimensions must be positive integers")
+        if not np.isfinite(self.roll):
+            raise ValueError("Camera roll must be finite")
+        if self.lens is not None and (self.width, self.height) != (self.lens.width, self.lens.height):
+            raise ValueError("Image size must match lens calibration; recalibrate cropped modes")
 
     @property
     def basis(self):
         yaw, pitch = np.deg2rad([self.yaw, self.pitch])
-        return np.array([[np.sin(yaw), -np.cos(yaw), 0],
+        basis = np.array([[np.sin(yaw), -np.cos(yaw), 0],
                          [-np.sin(pitch) * np.cos(yaw), -np.sin(pitch) * np.sin(yaw), -np.cos(pitch)],
                          [np.cos(pitch) * np.cos(yaw), np.cos(pitch) * np.sin(yaw), -np.sin(pitch)]])
+        roll = np.deg2rad(self.roll)
+        rotation = np.array([[np.cos(roll), np.sin(roll), 0], [-np.sin(roll), np.cos(roll), 0], [0, 0, 1]])
+        return rotation @ basis
 
     @property
     def focal(self):
@@ -60,8 +178,12 @@ class CameraModel:
         local = (points - self.center) @ self.basis.T
         forward = local[:, 2] > 1e-9
         pixels = np.full((len(points), 2), np.nan)
-        pixels[forward] = local[forward, :2] / local[forward, 2, None] * self.focal
-        pixels += np.array([self.width, self.height]) / 2
+        normalized = local[forward, :2] / local[forward, 2, None]
+        if self.lens is None:
+            pixels[forward] = normalized * self.focal + np.array([self.width, self.height]) / 2
+        else:
+            pixels[forward], supported = self.lens.project(normalized)
+            forward[np.flatnonzero(forward)] &= supported
         visible = forward & np.all((pixels >= 0) & (pixels <= [self.width, self.height]), axis=1)
         return pixels, visible
 
@@ -71,8 +193,11 @@ class CameraModel:
         if pixels.ndim != 2 or pixels.shape[1] != 2 or not np.isfinite(pixels).all():
             raise ValueError("Image points must be finite with shape (count, 2)")
         normalized = (pixels - np.array([self.width, self.height]) / 2) / self.focal
+        supported = np.ones(len(pixels), dtype=bool)
+        if self.lens is not None:
+            normalized, supported = self.lens.unproject(pixels)
         rays = np.column_stack((normalized, np.ones(len(pixels)))) @ self.basis
-        valid = (rays[:, 2] < -1e-9) & np.all((pixels >= 0) & (pixels <= [self.width, self.height]), axis=1)
+        valid = supported & (rays[:, 2] < -1e-9) & np.all((pixels >= 0) & (pixels <= [self.width, self.height]), axis=1)
         points = np.full((len(pixels), 3), np.nan)
         points[valid] = np.asarray(self.center) - self.center[2] / rays[valid, 2, None] * rays[valid]
         return points, valid
@@ -93,6 +218,10 @@ class Rig:
     minimum_range: float = 1.0
     maximum_range: float = 40.0
     horn_height: float = 0.8
+    layout: str = "ring"
+    roll: float = 0.0
+    offset: tuple = (0.0, 0.0, 0.0)
+    calibration: dict | None = None
 
     def __post_init__(self):
         if type(self.count) is not int or self.count < 1:
@@ -105,12 +234,22 @@ class Rig:
         self.cameras()
 
     def cameras(self):
-        center = (0.0, 0.0, self.height)
+        if self.layout not in ("ring", "single") or (self.layout == "single" and self.count != 1):
+            raise ValueError("Single layout needs exactly one camera")
+        if len(self.offset) != 3 or not np.isfinite(self.offset).all():
+            raise ValueError("Camera offset needs three finite values")
+        center = tuple(np.asarray(self.offset) + [0, 0, self.height])
+        lens = Lens.from_record(self.calibration) if self.calibration is not None else None
+        if self.layout == "single":
+            return [CameraModel("wide-0", center, self.yaw, self.pitch, self.hfov, self.vfov,
+                                self.width, self.image_height, lens, self.roll)]
+        if lens is not None:
+            raise ValueError("Ring cameras require separate calibrations; use the legacy uncalibrated profile")
         result = [CameraModel(f"ring-{index}", center, self.yaw + 360 * index / self.count,
-                              self.pitch, self.hfov, self.vfov, self.width, self.image_height)
+                              self.pitch, self.hfov, self.vfov, self.width, self.image_height, None, self.roll)
                   for index in range(self.count)]
         result.append(CameraModel("down", center, self.yaw, 90, self.down_hfov,
-                                  self.down_vfov, self.width, self.image_height))
+                                  self.down_vfov, self.width, self.image_height, None, self.roll))
         return result
 
 

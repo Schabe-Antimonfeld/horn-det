@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT.parents[1] / 'prototype/src/horn/surround.py'
-NAMES = {'wrap_angle', 'CameraModel', 'Rig', 'route_cameras', 'Detection', 'Association',
+NAMES = {'wrap_angle', 'Lens', 'CameraModel', 'Rig', 'route_cameras', 'Detection', 'Association',
          'associate', 'direction_vectors', 'Bearing', 'AcousticEvidence', 'acoustic_support'}
 
 
