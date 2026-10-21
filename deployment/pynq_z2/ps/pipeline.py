@@ -129,6 +129,10 @@ class Pipeline:
                 for group in comparison['groups']:
                     groups[tuple(sorted(item['identity'] for item in group))] = group
             result['groups'] = list(groups.values())
+            accepted = {item['identity'] for group in result['groups'] for item in group}
+            rejected = {item['identity']: item for comparison in comparisons for item in comparison['rejected']
+                        if item['identity'] not in accepted}
+            result['rejected'] = list(rejected.values())
             result['state'] = 'ambiguous' if groups else 'unmatched'
             result['source_unexplained'] = any(comparison['source_unexplained'] for comparison in comparisons)
             result['acoustic_hypotheses'] = comparisons

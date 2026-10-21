@@ -88,6 +88,8 @@ def test_synthesis_replays_pcm_and_never_uses_vision_random_numbers():
     np.testing.assert_array_equal(first, second)
     assert pcm == other and not augmented and first.shape == (48000, 14)
     assert pcm['clipped_samples'] == 0 and pcm['peak'] <= 0.9001
+    raw = module.synthesize(case, sources, profile, condition=False)[0]
+    np.testing.assert_array_equal(first, module.Conditioning(14).feed(raw * 32768))
     assert not np.array_equal(first, module.synthesize(case, sources, profile, stress=True)[0])
 
 

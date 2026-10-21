@@ -118,3 +118,17 @@ def test_frontend_overflow_abstains_without_terminating_service(monkeypatch):
     event, evidence = pipeline.analyze(dict(audio=np.zeros((48000, 14)), first=0, end=48000, epoch=0, clipped=False))
     assert event['frontend_clipped'] and not event['activation_clipped']
     assert event['acoustic_state'] == 'invalid_audio' and not event['horn_candidate'] and evidence is None
+
+
+def test_hypothesis_union_never_rejects_a_vehicle_supported_by_another(monkeypatch, tmp_path):
+    import ps.pipeline as module
+    comparisons = iter([
+        dict(state='unmatched', groups=[], rejected=[dict(identity='car-a', reason='angle_mismatch')], source_unexplained=True),
+        dict(state='unique', groups=[[dict(identity='car-a')]], rejected=[], source_unexplained=False)])
+    monkeypatch.setattr(module, 'associate', lambda *args, **kwargs: next(comparisons))
+    pipeline = Pipeline(load_config(), None)
+    event = dict(state='CONFIRMED', horn_candidate=True, event_id=1, azimuth=None,
+                 direction_candidates=[dict(azimuth=0), dict(azimuth=180)])
+    result = pipeline.capture(event, None, None, None, tmp_path, 0)['association']
+    assert result['state'] == 'ambiguous' and result['groups'] == [[dict(identity='car-a')]]
+    assert result['rejected'] == [] and result['source_unexplained']

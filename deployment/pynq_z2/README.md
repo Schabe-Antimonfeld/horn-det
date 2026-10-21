@@ -10,6 +10,24 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## 可选频带MLP与PCM恢复实验
+
+`detector.backend=spectral` 使用7826参数BandMLP，输入同样是完成的40×24 Log-Mel上下文，PS内部计算保留频带位置的160项统计，再做两层NumPy矩阵乘法；不使用PyTorch、PANNs或CNN DMA。实时采集仍要求与14路接口一致的overlay和PYNQ。默认配置未提升到该研究后端，冻结评测结果与限制见[第12章](../../docs/12_实验设计与评价指标.md)。
+
+在仓库根目录使用本地训练产物（模型/门限必须成套）：
+
+```powershell
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/run.py --config prototype/outputs/horn_recovery_v1/spectral_numpy-config.json --check
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/run.py --config prototype/outputs/horn_recovery_v1/spectral_numpy-config.json --replay PATH_TO_ARRAY14.wav --output NEW_REPLAY_OUTPUT
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/horn_recovery_v1/spectral_model --config prototype/outputs/horn_recovery_v1/spectral_numpy-config.json --output prototype/outputs/horn_recovery_v1/standalone-spectral
+```
+
+打包器将配置中的模型目录改为包内`model`，检查后端与架构匹配。新实验的Tiny模型同样要求显式提供其`recovered_integer-config.json`，以免沿用旧门限；其配置为慢速整数回放，上板需要改成fpga并使用同模型标签的bit/hwh。Tiny的manifest指定原始或去整体均值Log-Mel前端，旧manifest默认原始前端。
+
+BandMLP包中的FPGA构建脚本仍需要独立的TinyCNN导出目录；BandMLP的NPZ不能输入TinyCNN Verilog。可在外部用已验证Tiny导出构建采集overlay，再将同次bit/hwh加入BandMLP运行包；BandMLP路径只使用采集及可选SRP，不要求闲置CNN核的模型标签与MLP相同。当前尚无可用目标bit/hwh，运行包明确不含firmware，不称为可直接上板验收的固件。
+
+PC上12个热身后测量窗中，完整NumPy声学＋事件（不含采集、相机、视觉和I/O）BandMLP中位约131 ms、整数软件Tiny约179 ms；这是本机48000样本窗口，不能换算成ARM实时性能或PL CNN时间。新增证据无效/方向歧义语义见[相机说明](CAMERA.md)。
+
 ## 分阶段记录
 
 1. 配置及部署合同：已实现；Vivado2019.2启动成功，但缺少XC7Z020器件支持和PYNQ-Z2板卡定义，尚不能创建目标工程。

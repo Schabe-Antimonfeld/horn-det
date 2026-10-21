@@ -2,7 +2,7 @@
 
 `legacy`分支冻结广角适配前的`1f11b16`版本；`main`推进单颗GC2093 USB广角摄像头方案。主线默认单摄像头配置，144°水平/77.6°垂直为厂商标称，不能覆盖360°。真实视觉需加载实测畸变标定；14路声学和可选SRP加速保持原实现。
 
-相机参数、USB/标定工具、仿真和待验收项见[广角适配说明](deployment/pynq_z2/CAMERA.md)。固定多声源仿真中，原Tiny CNN仅接受6/52个含鸣笛场景、正确接受方向1/52；该检测瓶颈尚未解决，不能将相机适配完成等同于整套系统效果可用。
+相机参数、USB/标定工具、仿真和待验收项见[广角适配说明](deployment/pynq_z2/CAMERA.md)。历史58场景还存在混合幅度超出PCM约定的问题；当前已修复幅度与随机流，并完成两种协议的冻结比较。保留频带位置的7826参数BandMLP可选PS NumPy后端，联合F1为0.569/0.565，负例接受2/84、3/84；旧Tiny CNN约0.35，重训Tiny约0.18～0.21，后者不提升为默认。PANNs约0.73但误接受更多，仅作PC对照。上述均为复用公开录音的合成阵列/相机测试，仍不能作为道路或板端可用证明，详见[评价记录](docs/12_实验设计与评价指标.md)。
 
 - [CHANGELOG.md](CHANGELOG.md)：功能、修复、验证进展与待确定事项。
 - `docs/`：分模块技术文档。
@@ -33,4 +33,4 @@ USB wide-angle camera capture / spatial association
 
 已有[14路PDM采集及Tiny CNN整数推理RTL](fpga/README.md)，通过本地功能仿真；PANNs研究模型在PC运行，Tiny CNN内核不支持直接部署PANNs。PS多相机源码见下方独立部署目录；Vivado综合、时序和实际板上闭环尚待验收。
 
-新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选相机适配，含独立打包和校验；可选批量SRP插值累加已接入部署构建和Python DMA后端，默认保持NumPy，收益待板上测试。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。
+新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选BandMLP及相机适配，含独立打包和校验；可选批量SRP插值累加已接入部署构建和Python DMA后端，默认保持NumPy，收益待板上测试。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。

@@ -109,7 +109,7 @@ def waveform(record):
     return signal / rms, start
 
 
-def synthesize(case, sources, profile, stress=False):
+def synthesize(case, sources, profile, stress=False, condition=True):
     rig, config = camera_rig(), Config(microphones=14, diameter=0.24)
     coordinates = circular_array(config)
     points = [radius * np.array([np.cos(np.deg2rad(angle)), np.sin(np.deg2rad(angle))])
@@ -134,6 +134,10 @@ def synthesize(case, sources, profile, stress=False):
     if stress:
         requested *= 10 ** (profile['stress']['gain_db'][case['pair'] % 2] / 20)
     decoded, pcm = pcm_roundtrip(*components, noise, requested, profile['headroom'])
+    if not condition:
+        if augmented:
+            raise ValueError('Raw PCM replay export is only defined for unaugmented scenes')
+        return decoded, pcm, points, augmented
     audio = Conditioning(14).feed(decoded * 32768)
     if augmented:
         settings = profile['stress']
@@ -632,6 +636,7 @@ def evaluate(stress=False):
             if name == 'recovered_integer':
                 item['probability_mae'] = float(np.abs(scores - float_scores).mean())
                 item['maximum_probability_error'] = float(np.abs(scores - float_scores).max())
+                item['float_at_integer_gate'] = joint_metrics(cases, float_scores, gate['threshold'], gate['margin'])
             result['models'][name] = item
         reports[protocol] = result
     write_json(OUTPUT / ('stress-results.json' if stress else 'results.json'), dict(freeze_sha256=digest(OUTPUT / 'freeze.json'), protocols=reports,
@@ -654,20 +659,107 @@ def report():
         for name, item in values['models'].items():
             metric = item['joint']
             lines.append(f"| {protocol} | {name} | {metric['f1']:.4f} | {metric['tp']} | {metric['wrong_direction']} | {metric['accepted_negative']} | {metric['candidate_hits']} | {item['wide_camera']['correct_unique']} | {item['old_ring_camera']['correct_unique']} |")
+    if (OUTPUT / 'stress-results.json').exists():
+        pressure = load_json(OUTPUT / 'stress-results.json')
+        lines += ['', '| 压力协议 | 模型 | 联合 F1 | 正确方向/84 | 负例接受/84 |', '|---|---|---:|---:|---:|']
+        for protocol, values in pressure['protocols'].items():
+            for name, item in values['models'].items():
+                metric = item['joint']
+                lines.append(f"| {protocol} | {name} | {metric['f1']:.4f} | {metric['tp']} | {metric['accepted_negative']} |")
     lines += ['', '联合 TP 要求接受且方向误差严格小于 10°；接受错误方向计 FP+FN。未输出、拍不到和歧义均留在正例分母中。上表相机唯一结果仅为几何诊断，部署仍强制保留实际归属歧义。', '',
-              '旧 Tiny 使用同样验证选择准则重新校准，旧继承门限的验证表现保存在 freeze.json，未覆盖旧文件。PANNs 为冻结 PC 教师/对照，未接入板端。', '',
+              '旧 Tiny 使用同样验证选择准则重新校准，但预定门限网格内没有满足负例接受率≤10%的点，freeze.json 明确记录 constraint_met=false；旧继承门限的验证表现也保留，未覆盖旧文件。PANNs 为冻结 PC 教师/对照，未接入板端。', '',
+              '方案判断：推荐继续验证 BandMLP 的板端研究路线，不提升为已验收默认值；本次 Tiny CNN 重训未成功，不替换旧模型。BandMLP 保留频带位置、共 7826 参数，用 NumPy 推理；其更低误接受伴随较低召回，不能宣称全面超过 PANNs。', '',
+              '可见协议将目标可见数从 46/84 提升到 84/84；PANNs 的单广角正确几何唯一数从 17/84 提高到 26/84，原环形相机在两协议均为 26/84。每个协议内两种相机使用相同声学分数；协议之间旋转音频。该诊断支持覆盖差异是旧方案优势的一部分；分类拒绝、角度误差和宽峰仍会阻止唯一关联。', '',
+              'PANNs 在原协议 HornBase 负例上接受 15/36，而 ESC50 为 3/48，说明教师存在明显来源差异。BandMLP 原协议只正确接受 35/84 个鸣笛方向，仍有大量拒绝。不能把低误接受当作高召回。', '',
               '训练保持 1834 参数 RTL 架构，比较原始 Log-Mel 和去除每个完成上下文全局均值的 Log-Mel；使用弱场景多实例损失、教师波束软标签和仅在教师赞同且候选命中时启用的方向排序。错误波束仍可能含鸣笛，未硬标为干净负例。', '',
               '一半训练声场加入侧向单次反射、通道增益及微小时延误差；这是域随机化代理，没有模拟完整道路混响。验证/测试主组不含该扰动。', '',
+              '压力组在测试前预定 ±12 dB 目标数字级别、反射增益 0.25、每通道 ±1 dB 与 ±0.15 样本残差，PCM 峰值余量仍有效；不继续改模型或门限。压力组可能改善部分波束分数，不能据此保证任意噪声/混响下稳健。', '',
               '4 个跨来源/类别验证向量已做整数/RTL 对拍；详细概率量化差、饱和统计、各来源指标、相机歧义/未匹配数和同向漏检压力诊断见 results.json。', '',
+              '同向漏框压力诊断只在正确接受的方向上追加一辆更远的同向车并隐藏目标框，分母是该条件子组；不是独立无偏测试。主表相机比较保持同一音频与声学分数。', '',
               '停止继续调参：下一步应采集真实同步阵列、独立道路背景及实测镜头/曝光/地面控制点。仍缺连续事件标签、移动声源、FP/hour、ARM/PL 时延、真实视觉模型和上板证据。', '',
-              '重放：在仓库根目录依次运行 prototype/improve_detector.py 的 plan、prepare --split train、prepare --split validation、train、export、freeze、prepare --split test、evaluate。使用既有 Python 环境；旧实验目录只读。', '']
+              '重放：在仓库根目录依次运行 prototype/improve_detector.py 的 plan、prepare --split train、prepare --split validation、baseline、train、train-spectral、export、freeze、prepare --split test、evaluate、prepare --split test --stress、evaluate --stress、benchmark、verify。使用既有 Python 环境；旧实验目录只读。', '']
     (OUTPUT / 'README.md').write_text('\n'.join(lines), encoding='utf-8')
     print('\n'.join(lines[:17]), flush=True)
 
 
+def benchmark():
+    from ps.configuration import load_config
+    from ps.detector import Detector
+    from ps.pipeline import Pipeline
+    cases, _ = load_cache('test-original')
+    indices = [next(index for index, case in enumerate(cases) if case['dataset'] == domain and case['label'] == label)
+               for domain in ('HornBase', 'ESC50') for label in (1, 0)]
+    plan = check_plan()
+    names = {cases[index][name] for index in indices for name in ('target', 'interferer')}
+    sources = {record['file']: waveform(record) for record in plan['sources'] if record['file'] in names}
+    audio = [synthesize(cases[index], sources, plan['profile'])[0] for index in indices]
+    result = {}
+    for name, detector in [('spectral_numpy', SpectralDetector(OUTPUT / 'spectral_model')),
+                           ('recovered_integer', Detector(OUTPUT / 'fpga_model'))]:
+        config = load_config(OUTPUT / (name + '-config.json'))
+        pipeline = Pipeline(config, detector)
+        durations = []
+        for repeat in range(4):
+            for signal in audio:
+                started = time.perf_counter()
+                event, _ = pipeline.analyze(dict(audio=signal, first=0, end=48000, epoch=repeat, clipped=False))
+                if repeat:
+                    durations.append(time.perf_counter() - started)
+        result[name] = dict(median_seconds=float(np.median(durations)), p90_seconds=float(np.percentile(durations, 90)),
+                            measured_windows=len(durations), warmup_windows=len(audio))
+    write_json(OUTPUT / 'benchmark.json', dict(results=result, numpy=np.__version__, python=sys.version,
+                 scope='PC only; completed 48000-sample window; full NumPy SRP + beams + features + classifier + event, excludes capture/conditioning/camera/vision/I-O; not ARM or PL timing'))
+    print(json.dumps(result, indent=2), flush=True)
+
+
+def verify():
+    plan = check_plan()
+    frozen = load_json(OUTPUT / 'freeze.json')
+    if frozen['selection_sha256'] != digest(OUTPUT / 'selection.json'):
+        raise ValueError('Frozen selection changed')
+    count = 0
+    for split in ('train', 'validation', 'test', 'stress'):
+        for protocol in plan['profile']['protocols']:
+            if split == 'train' and protocol != 'original':
+                continue
+            rows, data = load_cache(split + '-' + protocol)
+            count += len(rows)
+            if any(row['pcm']['clipped_samples'] or row['pcm']['peak'] > 0.9001 for row in rows):
+                raise ValueError('A scene violates the PCM headroom contract')
+            if protocol == 'visible' and any(not row['visible'] for row in rows):
+                raise ValueError('Visible protocol contains an out-of-view target')
+    for filename in ('results.json', 'stress-results.json'):
+        result = load_json(OUTPUT / filename)
+        if result['freeze_sha256'] != digest(OUTPUT / 'freeze.json'):
+            raise ValueError('Result refers to a different frozen selection')
+        for protocol, value in result['protocols'].items():
+            if value['count'] != 168 or value['positives'] != 84:
+                raise ValueError('Test denominator changed')
+            for name, item in value['models'].items():
+                for geometry in ('wide_camera', 'old_ring_camera'):
+                    counts = item[geometry]
+                    if sum(counts[key] for key in ('correct_unique', 'incorrect_unique', 'ambiguous', 'unmatched')) != 84:
+                        raise ValueError('Association outcomes do not partition positives')
+    rtl = load_json(OUTPUT / 'rtl.json')
+    if rtl['manifest_sha256'] != frozen['models']['recovered_integer']['manifest_sha256'] or 'PASS CNN' not in rtl['output']:
+        raise ValueError('RTL proof does not match frozen weights')
+    SpectralDetector(OUTPUT / 'spectral_model')
+    for name, directory in [('old_integer', BASE / 'fpga_model'), ('recovered_integer', OUTPUT / 'fpga_model'),
+                             ('spectral_numpy', OUTPUT / 'spectral_model')]:
+        if digest(directory / 'manifest.json') != frozen['models'][name]['manifest_sha256']:
+            raise ValueError('Frozen model manifest changed')
+        if name != 'spectral_numpy':
+            fixed_module().check_export(directory)
+    checksums = {path.relative_to(OUTPUT).as_posix(): digest(path) for path in OUTPUT.rglob('*')
+                 if path.is_file() and path.name != 'verification.json'}
+    write_json(OUTPUT / 'verification.json', dict(result='passed', cached_scenes=count, artifacts=checksums,
+                   frozen_inputs_unchanged=True, denominators_preserved=True, no_board_or_road_claim=True))
+    print(json.dumps(dict(result='passed', cached_scenes=count, artifacts=len(checksums))), flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['plan', 'prepare', 'baseline', 'train', 'train-spectral', 'export', 'freeze', 'evaluate', 'report'])
+    parser.add_argument('command', choices=['plan', 'prepare', 'baseline', 'train', 'train-spectral', 'export', 'freeze', 'evaluate', 'report', 'benchmark', 'verify'])
     parser.add_argument('--stress', action='store_true')
     parser.add_argument('--split', choices=['train', 'validation', 'test'], default='validation')
     args = parser.parse_args()
@@ -694,6 +786,10 @@ def main():
         evaluate(args.stress)
     elif args.command == 'report':
         report()
+    elif args.command == 'benchmark':
+        benchmark()
+    elif args.command == 'verify':
+        verify()
 
 
 if __name__ == '__main__':

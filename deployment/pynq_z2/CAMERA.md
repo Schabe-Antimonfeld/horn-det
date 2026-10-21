@@ -25,10 +25,11 @@
 
 ## 2. 当前处理流程
 
-同步阵列 → PS FFT/PHAT/GCC/SRP（可选PL插值累加）→ 候选波束 → PL Tiny CNN → 音频事件 → 单相机可见性 → 相应时刻USB缓存图像 → 外部车辆检测器 → 原图锚点反投影 → spatial关联 → 保存照片与候选标注。
+同步阵列 → PS FFT/PHAT/GCC/SRP（可选PL插值累加）→ 候选波束 → PL Tiny CNN（或可选PS BandMLP研究后端）→ 音频事件 → 单相机可见性 → 相应时刻USB缓存图像 → 外部车辆检测器 → 原图锚点反投影 → spatial关联 → 保存照片与候选标注。
 
 - 默认`layout=single`、`count=1`，只有`wide-0`，没有隐含下视相机。安装高度、yaw/pitch/roll和offset可调，默认值不是实测位姿。
 - 声学仍搜索360°。视野外声源保留音频事件，输出`outside_camera_view`，不强配画面内车辆。遮挡、漏检、过期图像或缺证据保留未匹配/歧义。
+- 多候选分差不足或同分时保留`ambiguous_direction`与方向列表，联合路由相机；部分候选在画面外时标记`partly_outside_camera_view`。不能因只拍到其中一辆车就确定鸣笛归属。输入/特征溢出或激活饱和输出`invalid_audio`，不触发可靠鸣笛事件。
 - 使用实测K和Brown五参数或OpenCV fisheye四参数，统一在**原始分辨率JPEG坐标**中检测、标注、反投影。不将去畸变坐标混到原图；强畸变对视觉模型的影响需另测。
 - 相机中心为`(offset_x,offset_y,height+offset_z)`，height是阵列离地高度。世界+x为0°、+y为正方位、+z向上；pitch向下，相机轴为右/下/前，roll按代码的右/下轴旋转定义。
 - USB尺寸、FOURCC或报告FPS与请求不符即报错。spawn子进程读帧，主进程保留有界JPEG缓存，异常写入camera_health。

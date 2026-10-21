@@ -27,7 +27,9 @@ horn-det/
 │   ├── README.md
 │   ├── main.py
 │   ├── simulate_surround.py
+│   ├── improve_detector.py
 │   ├── profiles/gc2093_single.json
+│   ├── profiles/horn_recovery.json
 │   ├── src/horn/
 │   └── tests/
 ├── fpga/
@@ -55,3 +57,5 @@ horn-det/
 ```
 
 `prototype/src/horn/surround.py` 为多相机几何及声画关联原型，`prototype/tests/test_surround.py` 包含解析测试。`prototype/outputs/surround_v2/` 为当前被忽略的本地仿真产物目录，保存配置、覆盖扫描、逐场景结果及合成框标注SVG；v1保留旧结果。产物不包含真实照片或重新训练的模型。
+
+`prototype/src/horn/recovery.py` 固定双协议、PCM合同和验证门限选择；`improve_detector.py` 生成独立的 `prototype/outputs/horn_recovery_v1/`，包含训练/评测、Tiny整数模型、BandMLP模型、冻结记录和源码运行包。这些训练及派生产物不入Git，旧 `horn_detector_v1/` 保持只读。
