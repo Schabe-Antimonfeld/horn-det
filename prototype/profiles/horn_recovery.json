@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "seed": 20261021,
+  "protocols": ["original", "visible"],
+  "headroom": 0.9,
+  "target_rms_levels": [0.025, 0.075, 0.15],
+  "sir_db": [-5.0, 0.0, 5.0],
+  "noise_snr_db": 25.0,
+  "candidate_count": 2,
+  "training": {"seeds": [0, 17], "epochs": 20, "patience": 6, "batch_scenes": 8, "learning_rate": 0.0003,
+               "teacher_weight": 0.5, "ranking_weight": 0.1, "contexts_per_beam": 3},
+  "selection": "validation macro joint-direction F1; prefer negative acceptance <= 0.1; shared gate across protocols",
+  "test_policy": "freeze model and integer gate before evaluating either protocol; historical 58-case raw-scale replay is diagnostic only",
+  "visibility": "projected ground anchor and vehicle box valid before synthesis; no occlusion in visible main group",
+  "limits": "public weak clip labels, reused source splits, synthetic array/camera/boxes; no road, continuous-event or board claim"
+}

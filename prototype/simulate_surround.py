@@ -23,6 +23,7 @@ from horn.calibration import remove_dc
 from horn.config import Config
 from horn.frontend import read_audio
 from horn.geometry import circular_array
+from horn.recovery import pcm_roundtrip
 from horn.surround import (AcousticEvidence, Association, Bearing, Detection, FrozenPanns, Rig, associate, bearing_candidates,
                            coverage_grid, form_beam, propagate_audio, route_cameras,
                            select_bearing, spatial_response, vehicle_box, wrap_angle)
@@ -263,6 +264,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
     config = Config(microphones=14, diameter=0.24)
     coordinates = circular_array(config)
     generator = np.random.default_rng(seed)
+    visual_generator = np.random.default_rng(seed + 100000)
     rows = []
     positions = [(-179, 60), (179, -60), (-90, 40), (0, 120), (90, -20), (45, -135)]
     plan = [(True, source, radius, angle, other, "standard") for source in range(2)
@@ -276,11 +278,17 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
         other = other_radius * np.array([np.cos(np.deg2rad(other_angle)), np.sin(np.deg2rad(other_angle))])
         source = np.r_[center, rig.horn_height - rig.height]
         interferer = np.r_[other, rig.horn_height - rig.height]
-        audio, propagation = propagate_audio(sources[source_index][0], source, coordinates, config)
+        signal, propagation = propagate_audio(sources[source_index][0], source, coordinates, config)
         other_index = 2 + identity % 2 if positive else 3
         noise, _ = propagate_audio(sources[other_index][0], interferer, coordinates, config)
-        audio += noise * 10 ** (5 / 20)
-        audio += generator.normal(0, 10 ** (-25 / 20), audio.shape)
+        interference = noise * 10 ** (5 / 20)
+        white = generator.normal(0, 10 ** (-25 / 20), signal.shape)
+        pcm = None
+        if settings['pcm_rms'] is None:
+            audio = signal + interference + white
+        else:
+            audio, pcm = pcm_roundtrip(signal, interference, white, settings['pcm_rms'])
+            audio, _ = remove_dc(audio)
         began = time.perf_counter()
         grid = spatial_response(audio, coordinates, config)
         candidates = bearing_candidates(*grid, count=settings["candidate_count"])
@@ -293,7 +301,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
         ordinary = float(grid[0][np.argmax(grid[2][:, 0])])
         selected_cameras = route_cameras(rig, estimate, cameras=cameras) if decision["valid"] else []
         detections, truth = observations(rig, cameras, [center, other], [np.zeros(2), np.zeros(2)],
-                                          0.5, generator, drop_target=mode == "missed_collinear")
+                                          0.5, visual_generator, drop_target=mode == "missed_collinear")
         selected_detections = [item for item in detections if item.camera in selected_cameras]
         evidence = AcousticEvidence(chosen, grid) if decision["valid"] and chosen is not None else None
         comparisons = compare_association(rig, estimate, 0.5 + propagation["flight_seconds"],
@@ -308,7 +316,7 @@ def acoustic_trials(rig, cameras, settings, seed, output, association):
                          baseline_error=float(abs(wrap_angle(ordinary - angle))) if positive else None,
                          candidate_hit=any(item.azimuth is not None and abs(wrap_angle(item.azimuth-angle)) < 10 for item in candidates) if positive else None,
                          selected_cameras=selected_cameras, comparisons=comparisons, association=result, evaluation=evaluation,
-                         processing_ms=elapsed))
+                         processing_ms=elapsed, pcm=pcm))
         print(f"acoustic {identity + 1}/{len(plan)} accepted={decision['valid']} score={decision['score']} angle={estimate}", flush=True)
     positives = [row for row in rows if row["positive"]]
     negatives = [row for row in rows if not row["positive"]]
@@ -401,6 +409,7 @@ def main():
     parser.add_argument("--output", type=Path, default=PROTO / "outputs" / "surround_v2")
     parser.add_argument("--profile", type=Path)
     parser.add_argument("--geometry-only", action="store_true")
+    parser.add_argument("--legacy-scale", action="store_true", help="Diagnostic raw float mixture without PCM16 scaling")
     parser.add_argument("--seed", type=int, default=20261017)
     for option, kind in [("cameras", int), ("height", float), ("pitch", float), ("hfov", float),
                          ("vfov", float), ("down-hfov", float), ("down-vfov", float),
@@ -422,10 +431,14 @@ def main():
     if set(overrides) - {camera.identity for camera in cameras} or any("identity" in value for value in overrides.values()):
         raise ValueError("Camera overrides must reference existing immutable identities")
     cameras = [replace(camera, **overrides.get(camera.identity, {})) for camera in cameras]
-    settings = dict(candidate_count=2, threshold=0.2, margin=0.0, classifier="panns")
+    settings = dict(candidate_count=2, threshold=0.2, margin=0.0, classifier="panns", pcm_rms=0.075)
     if set(profile.get("acoustics", {})) - settings.keys():
         raise ValueError("Unknown acoustic settings")
     settings.update(profile.get("acoustics", {}))
+    if arguments.legacy_scale:
+        settings['pcm_rms'] = None
+    if settings['pcm_rms'] is not None and (not np.isfinite(settings['pcm_rms']) or settings['pcm_rms'] <= 0):
+        raise ValueError("PCM target RMS must be finite and positive")
     if settings["classifier"] not in ("panns", "tiny"):
         raise ValueError("Classifier must be panns or tiny")
     if type(settings["candidate_count"]) is not int or settings["candidate_count"] < 1:

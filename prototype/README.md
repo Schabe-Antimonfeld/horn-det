@@ -1,5 +1,7 @@
 # Python 算法原型
 
+鸣笛恢复实验使用 `profiles/horn_recovery.json` 冻结来源划分、声压数字幅度代理和双测试协议；`src/horn/recovery.py` 保证整场景/全部通道共用增益，经 PCM16 编解码后再提取特征。`simulate_surround.py` 默认目标 RMS 为 0.075，并按混合峰值保留余量；`--legacy-scale` 仅重放旧的非物理幅度诊断。声学噪声和视觉观测采用独立随机流，所以该选项不承诺逐样本复现旧报告。数字 RMS 不是经标定的 SPL。可见协议在合成前选定投影有效的目标位置，不按检测成功与否筛选。
+
 main单摄像头扩展：`simulate_surround.py --profile profiles/gc2093_single.json --output outputs/gc2093_single_v1`复用板端同款Tiny CNN整数参考及真实录音合成阵列；`--geometry-only`仅检查几何/解析关联。该profile的镜头参数人为构造且标记simulation_only，不是真实GC2093标定。结果与限制见[广角适配说明](../deployment/pynq_z2/CAMERA.md)，原多相机版本冻结于legacy分支。未指定profile时仍沿用原多相机/PANNs研究默认值，PANNs不在板端运行。
 
 使用 Python 3.12 和 uv，在本目录运行 `uv sync`、`uv run pytest`。完整模型与测试使用 `uv run --extra learning pytest`，CPU PyTorch 与 scikit-learn 在 learning extra 中；依赖版本由 `uv.lock` 固定。以下含模型的命令均携带 `--extra learning`，防止 uv 自动同步时移除可选依赖。
