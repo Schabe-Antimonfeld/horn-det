@@ -62,3 +62,72 @@ def test_numpy_spectral_model_matches_analytic_logits_and_checks_integrity(tmp_p
     (tmp_path / 'weights.npz').write_bytes(b'corrupt')
     with pytest.raises(ValueError, match='checksum'):
         SpectralDetector(tmp_path)
+
+
+def test_temporal_features_preserve_analytic_envelope_order_and_gain():
+    from ps.band import temporal_features
+    values = np.arange(7)[:, None, None] + np.arange(40)[None, :, None] + np.zeros((7, 40, 24))
+    original = values.copy()
+    actual = temporal_features(values)
+    for index, offset in enumerate((-2, 0.5, 2.5, 3)):
+        np.testing.assert_allclose(actual[index * 160:index * 160 + 40], np.arange(40) - 19.5 + offset)
+        np.testing.assert_allclose(actual[index * 160 + 40:(index + 1) * 160], 0)
+    np.testing.assert_allclose(temporal_features(values + 100), actual, atol=1e-12)
+    np.testing.assert_array_equal(original, values)
+    assert not np.array_equal(temporal_features(values[::-1]), actual)
+    with pytest.raises(ValueError, match='seven finite'):
+        temporal_features(values[:6])
+    with pytest.raises(ValueError, match='seven finite'):
+        temporal_features(values * np.nan)
+
+
+def test_temporal_model_checks_frontend_identity_and_analytic_logits(tmp_path):
+    from ps.band import TemporalDetector, load_spectral, validate_model
+    first = np.zeros((48, 640))
+    first[0, 39] = 0.1
+    final = np.zeros((2, 48))
+    final[1, 0] = 2
+    np.savez(tmp_path / 'weights.npz', weight0=first, bias0=np.zeros(48), weight1=final, bias1=np.zeros(2))
+    checksum = hashlib.sha256((tmp_path / 'weights.npz').read_bytes()).hexdigest()
+    metadata = dict(format=1, architecture='BandTemporalMLP-30866', feature_mode='temporal', contexts=7,
+                    input_shape=[40, 24], provenance=dict(frontend='logmel'),
+                    model_tag=int(checksum[:8], 16), sha256={'weights.npz': checksum})
+    path = tmp_path / 'manifest.json'
+    path.write_text(json.dumps(metadata), encoding='utf-8')
+    model = load_spectral(tmp_path)
+    assert isinstance(model, TemporalDetector) and validate_model(tmp_path) == metadata
+    values = np.arange(40)[None, :, None] + np.zeros((7, 40, 24))
+    assert model.score(values)['score'] == pytest.approx(1 / (1 + np.exp(-3.9)))
+    assert model.score(values[:, ::-1])['score'] == 0.5
+    assert model.score([])['score'] == 0
+    with pytest.raises(ValueError, match='seven finite'):
+        model.score(values[:6])
+    for key, value in [('feature_mode', 'static'), ('contexts', 6), ('input_shape', [24, 40]),
+                       ('provenance', dict(frontend='centered_logmel'))]:
+        path.write_text(json.dumps(dict(metadata, **{key: value})), encoding='utf-8')
+        with pytest.raises(ValueError, match='contract'):
+            validate_model(tmp_path)
+    path.write_text(json.dumps(metadata), encoding='utf-8')
+    (tmp_path / 'weights.npz').write_bytes(b'corrupted')
+    with pytest.raises(ValueError, match='checksum'):
+        validate_model(tmp_path)
+
+
+def test_temporal_deployment_matches_all_frozen_test_beam_scores():
+    from ps.band import TemporalDetector
+    base = ROOT.parents[1] / 'prototype/outputs'
+    model = base / 'band_improvements_v1/model-combined'
+    if not model.is_dir():
+        pytest.skip('Optional local temporal training artifacts absent')
+    detector = TemporalDetector(model)
+    maximum = 0
+    for phase in ('test', 'stress'):
+        for protocol in ('original', 'visible'):
+            key = phase + '-' + protocol
+            with np.load(base / ('horn_recovery_v1/' + key + '.npz'), allow_pickle=False) as archive:
+                contexts = archive['contexts']
+            with np.load(base / ('band_improvements_v1/' + key + '-predictions.npz'), allow_pickle=False) as archive:
+                expected = archive['combined']
+            actual = np.asarray([[detector.score(beam)['score'] for beam in scene] for scene in contexts])
+            maximum = max(maximum, float(np.abs(actual - expected).max()))
+    assert maximum < 1e-12

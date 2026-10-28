@@ -12,7 +12,8 @@ import numpy as np
 
 from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
 from ps.configuration import ROOT, load_config
-from ps.detector import Detector, SpectralDetector, validate_model
+from ps.detector import Detector
+from ps.band import load_spectral, validate_backend, validate_model
 from ps.dsp import Conditioning
 from ps.pipeline import Pipeline
 from ps.srp import SrpDevice
@@ -68,11 +69,12 @@ def main(argv=None):
         raise ValueError('WAV replay requires the NumPy SRP backend')
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = validate_model(directory)
-    spectral = config['detector']['backend'] == 'spectral'
-    if spectral != (metadata['architecture'] == 'BandMLP-7826'):
-        raise ValueError('Configured backend and model architecture disagree')
+    spectral = validate_backend(config, metadata)
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
+                          'classifier': metadata['architecture'], 'detector_backend': config['detector']['backend'],
+                          'direction_threshold': config['detector']['threshold'],
+                          'capture_threshold': config['detector'].get('capture_threshold', config['detector']['threshold']),
                           'board_runtime': 'requires PYNQ/NumPy; hardware not checked',
                           'srp_backend': config['search'].get('backend', 'numpy'),
                           'vision_enabled': config['vision']['enabled']}))
@@ -93,7 +95,7 @@ def main(argv=None):
     try:
         conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
         if args.replay:
-            detector = SpectralDetector(directory) if spectral else Detector(directory)
+            detector = load_spectral(directory) if spectral else Detector(directory)
             snapshots = replay(args.replay, config['audio'], conditioning)
         else:
             if config['detector']['backend'] not in ('fpga', 'spectral'):
@@ -104,7 +106,7 @@ def main(argv=None):
             from pynq import Overlay, allocate
             overlay = Overlay(str(bitstream))
             if spectral:
-                detector = SpectralDetector(directory)
+                detector = load_spectral(directory)
             else:
                 device = cnn_client()(overlay, metadata, allocate, config['hardware']['timeout'])
                 detector = Detector(directory, device)
