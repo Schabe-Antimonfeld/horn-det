@@ -10,7 +10,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from ps.detector import validate_model
+from ps.band import validate_backend, validate_model
 
 
 def digest(path):
@@ -35,10 +35,9 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
     if configuration is not None:
         from ps.configuration import load_config
         config = load_config(configuration)
-        if (config['detector']['backend'] == 'spectral') != (metadata['architecture'] == 'BandMLP-7826'):
-            raise ValueError('Package backend and model architecture disagree')
+        validate_backend(config, metadata)
         config['detector']['model_directory'] = 'model'
-    elif metadata['architecture'] == 'BandMLP-7826' or metadata.get('provenance', {}).get('plan_sha256'):
+    elif metadata['architecture'] in ('BandMLP-7826', 'BandTemporalMLP-30866') or metadata.get('provenance', {}).get('plan_sha256'):
         raise ValueError('Recovery models require their frozen operating configuration')
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a new empty bundle directory')
@@ -46,9 +45,16 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
         raise ValueError('Supply matching bitstream and HWH together')
     if bitstream and Path(bitstream).stem != Path(handoff).stem:
         raise ValueError('Bitstream/HWH must share a build basename')
+    firmware = 'horn_capture' if metadata['architecture'] == 'BandTemporalMLP-30866' else 'horn_cnn'
+    if bitstream and config is not None:
+        config['hardware']['overlay'] = 'firmware/' + firmware + '.bit'
     output.mkdir(parents=True, exist_ok=True)
     for path in [ROOT / 'run.py', ROOT / 'README.md', ROOT / 'HANDOFF.md', ROOT / 'CAMERA.md']:
         shutil.copy2(str(path), str(output / path.name))
+        if path.suffix == '.md':
+            text = path.read_text(encoding='utf-8').replace('](../../docs/',
+                   '](https://github.com/Schabe-Antimonfeld/horn-det/blob/main/docs/')
+            (output / path.name).write_text(text, encoding='utf-8')
     for folder, pattern in [('ps', '*.py'), ('config', '*.json'), ('scripts', '*.py'), ('scripts', '*.tcl'),
                              ('scripts', '*.service'), ('rtl', '*.v')]:
         (output / folder).mkdir(exist_ok=True)
@@ -72,10 +78,10 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
         shutil.copy2(str(model / name), str(destination / name))
     if bitstream:
         (output / 'firmware').mkdir()
-        shutil.copy2(str(bitstream), str(output / 'firmware/horn_cnn.bit'))
-        shutil.copy2(str(handoff), str(output / 'firmware/horn_cnn.hwh'))
+        shutil.copy2(str(bitstream), str(output / ('firmware/' + firmware + '.bit')))
+        shutil.copy2(str(handoff), str(output / ('firmware/' + firmware + '.hwh')))
     files = {path.relative_to(output).as_posix(): digest(path) for path in output.rglob('*') if path.is_file()}
-    manifest = {'format': 1, 'model_tag': metadata['model_tag'], 'files': files,
+    manifest = {'format': 1, 'model_tag': metadata['model_tag'], 'classifier': metadata['architecture'], 'files': files,
                 'firmware_included': bool(bitstream), 'board_validated': False,
                 'vision_weights_included': False, 'license_scope': 'research/noncommercial; model provenance in model/manifest.json'}
     (output / 'bundle.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')

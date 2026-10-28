@@ -4,15 +4,19 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-本地 `prototype/outputs/horn_recovery_v1/` 保留模型、计划、冻结门限、双协议和压力结果、RTL对拍及独立运行包。训练产物不进入Git；合作者需取得本地包或按原型说明重放，不应在新checkout中假定这些文件存在。包内科研/非商业模型不可据此重分发原始数据。
+2026-10-28最新版为时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；仅支持原始Log-Mel的七上下文窗口。本地独立包为 `deployment/pynq_z2/outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip`，含PS Python、模型、配置、采集Verilog、约束和构建入口，不含bit/hwh或视觉权重。
 
-1. 优先以 `spectral_numpy-config.json` 的冻结配置验证BandMLP；板端仅依赖NumPy，无PANNs/PyTorch。默认部署配置仍是旧Tiny，不能将新模型单独放入旧门限/前端配置中运行。
-2. BandMLP不使用CNN权重或CNN DMA，但仍需要14路采集overlay；可复用已验证采集/CNN/SRP overlay，未用的CNN核闲置。构建脚本仍接收TinyCNN导出目录，不能给它BandMLP的weights.npz。新Tiny模型标签3034163930，仅是可复现的失败对照及RTL校验结果。
+旧 `prototype/outputs/horn_recovery_v1/` 保留早期模型、计划、RTL对拍和独立运行包；时间模型与抓拍工作点证据分别在 `band_improvements_v1/`、`capture_policy_v1/`。训练产物不进入Git；合作者需取得本地包或按原型说明重放，不应在新checkout中假定这些文件存在。包内科研/非商业模型不可据此重分发原始数据。
+
+1. 优先验证时间组合模型与配套 `config/band_temporal.json`；板端推理仅依赖NumPy，无PANNs/PyTorch。源码默认配置仍是旧Tiny，新版独立包已将时间配置放到包内 `config/default.json`，不能把权重单独放入旧门限/前端配置中运行。
+2. 使用 `scripts/build_ps.tcl` 构建纯14路采集overlay，不需要CNN权重。也可复用经验证的采集/CNN/SRP overlay，未用的CNN核闲置；旧 `scripts/build.tcl` 仍接收Tiny导出目录，不能给它BandMLP的NPZ。新Tiny模型标签3034163930仅为历史失败对照及RTL校验结果。
 3. 先用同步PCM16 WAV离线回放，再上板核实持续采样、丢包、跳窗、内存、PS温度/CPU、端到端更新周期和相机历史覆盖；各阶段保留health/events记录。模型打包和PC耗时不替代此项。
 4. 采集新的连续道路背景和独立车辆/位置/录音时段；做精确事件标注，报告FP/hour、事件召回/延迟和角度误差。按来源/地点先划分，再切窗，保留画外、遮挡和同方向多车组。不能用本次测试集继续调门限。
 5. 在实测镜头、外参、曝光时钟及车辆接地点通过验收之前，继续标可能车辆并保留歧义；即便可见协议中几何匹配唯一，也不是实际车辆鸣笛证明。
 
 ## 本机已知阻塞
+
+2026-10-28再次启动Vivado2019.2，目标器件探测仍报 `No parts matched 'xc7z020clg400-1'` / `Specified part could not be found`；新版 `build_ps.tcl ... create` 在缺少PYNQ-Z2板卡定义处停止。日志在本地 `outputs/temporal_deploy_v1_20261028/probe.log`、`capture-build-attempt.log`。没有执行目标综合、布局布线或生成bit/hwh，不将脚本入口通过当作硬件工程成功。
 
 2026-10-17使用D:/Xilinx/Vivado/2019.2/bin/vivado.bat实际启动2019.2。创建xc7z020clg400-1项目失败：Device 21-436 No parts matched，Coretcl 2-106 Specified part could not be found。安装中没有可用PYNQ-Z2板卡定义。日志在本地outputs/probe-project.log。没有目标综合/布局布线/时序/资源/bitstream结果；不能用Icarus通过替代。
 
@@ -31,15 +35,17 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 部署包与命令
 
-包中的run.py、ps/、config/、model/和vendor/fpga/不依赖PC prototype。model中是本地真实录音训练的TinyCNN整数文件，科研/非商业使用；并未达到道路验收，PANNs不在板端运行。
+包中的run.py、ps/、config/、model/和vendor/fpga/不依赖PC prototype。最新版model中是本地真实录音训练的时间BandMLP NPZ；历史Tiny包则为整数文件。均仅作科研/非商业使用，未达到道路验收，PANNs不在板端运行。
 
 ```text
 python run.py --check
 python run.py --replay synchronized-array14.wav --output replay-results
-vivado -mode batch -source scripts/build.tcl -tclargs model NEW_BUILD BOARD_REPOSITORY synth
+vivado -mode batch -source scripts/build_ps.tcl -tclargs NEW_BUILD BOARD_REPOSITORY synth
 ```
 
-补齐器件、板卡和接口时序后使用新的构建目录运行bit模式，将同次构建的horn_cnn.bit和horn_cnn.hwh放入firmware/，同时确保构建模型标签与model/manifest.json一致，再运行 `python run.py --output live-results`。run.py默认使用FPGA CNN，缺文件、模型不匹配或DMA出错会失败，不以软件随机模型替代。
+补齐器件、板卡和接口时序后使用新的构建目录运行bit模式，将同次构建的 `horn_capture.bit/hwh` 放入新版包的 `firmware/`，再运行 `python run.py --output live-results`。时间模型在PS执行，纯采集固件不含CNN或模型标签；服务校验NPZ标签、配置和权重哈希。历史Tiny包仍用 `scripts/build.tcl model ...`、`horn_cnn.bit/hwh` 并要求CNN模型标签一致。缺文件、模型不匹配或DMA出错会失败。
+
+新版优先保持 `search.backend=numpy`；纯采集overlay没有 `srp_dma`，不得直接切换到FPGA SRP。使用旧采集/CNN/SRP构建入口时需另备经过校验的Tiny整数导出，或由合作者在Vivado中完成等价采集/SRP接线，并重新做时序和协议验收；时间BandMLP不能复用Tiny CNN推理核。
 
 附带scripts/horn-det.service作为可选systemd模板，默认路径/home/xilinx/horn-det，使用--output-root为每次启动创建独立UTC时间/进程编号目录。先验证实际Python路径、板端权限、退出与DMA清理，再由合作者安装启用。本机未安装或启动该服务；模板用SIGINT请求清理，不强制SIGKILL。
 
@@ -50,12 +56,15 @@ vivado -mode batch -source scripts/build.tcl -tclargs model NEW_BUILD BOARD_REPO
 | 电气与时钟 | 阵列供电/逻辑电平、PDM CLK占空比及边沿、DATA交接波形 | 停止连接或采集，修正接口 |
 | 采集 | 每路单独声源确认通道序，PCM符号、噪声、频响、计数连续性 | 保留原始包，不拼接缺失样本 |
 | 标定 | 增益及分数延时；在audio.gains/delays中设置14个值 | 未标定结果只作研究候选 |
+| PS时间模型 | 标签405187002、七上下文、48128样本、方向0.95/抓拍0.90；相同完成波束与冻结NumPy参考对拍 | 核对模型/配置、前端及样本计数，不用旧Tiny门限替代 |
 | CNN | 同一特征比较PS整数参考与FPGA logits/概率/标签 | 查模型快照、尺度、DMA与饱和 |
 | 可选SRP | 使用部署构建入口生成含srp_dma的overlay；相同PCM分别测试search.backend=numpy/fpga，保存完整响应、峰值、窗口耗时及DMA流量 | 超过量化误差界则查协议/尺度；无加速收益则保留NumPy |
 | 连续负载 | 长时间录音，同时运行FFT/SRP/CNN与相机，统计gap及skipped_windows | 增大更新间隔或优化，不能隐瞒丢包 |
 | 时间 | PCM计数到单调时钟、前端/标定/波束群延迟、相机曝光时间 | 维持不确定标注，不按处理结束时间归属 |
 | 几何与道路 | 真实方位/俯角、相机覆盖、遮挡与坡度、车辆接触点 | 校正模型与误差界 |
 | 连续效果 | 独立车辆/地点数据，事件召回、FP/hour、错配/歧义及抓拍延迟 | 在验证集调整后重新冻结并盲测 |
+
+低分结果的 `capture_only` / `horn_candidate=false` / `doa_valid=false` 必须保留；此时 `CONFIRMED` 只表示抓拍候选满足连续确认计数。抓拍不能变成已确认鸣笛或确定车辆归属，单个几何匹配也不例外。视觉默认关闭，启用前须完成以下视觉与同步验收。
 
 PCM原始1.344 MB/s，32-bit DMA加包头约2.691 MB/s、93.75包/s。窗口48128采样约1.00267 s，更新24064采样约0.50133 s。Python采集线程与分析分离，队列有界，只保留最新待分析窗；跳过分析窗会重置连续确认。simple DMA重装仍可能丢音频，必须实测；必要时迁移SG DMA/原生驱动，当前没有无损保证。
 

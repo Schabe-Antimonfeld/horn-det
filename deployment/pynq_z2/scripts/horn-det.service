@@ -2,7 +2,7 @@
 Description=PYNQ horn detection research service
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=/home/xilinx/horn-det/firmware/horn_cnn.bit
+ConditionPathExistsGlob=/home/xilinx/horn-det/firmware/*.bit
 ConditionPathExists=/home/xilinx/horn-det/model/manifest.json
 
 [Service]

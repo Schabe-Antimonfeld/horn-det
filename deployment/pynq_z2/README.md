@@ -10,6 +10,29 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## 最新时间组合模型部署版（2026-10-28）
+
+使用 `config/band_temporal.json` 加载已训练的 `BandTemporalMLP-30866`（640→48→2、模型标签405187002）。ARM PS用NumPy完成时间特征及推理，PL只需14路PDM→PCM采集。方向门限0.95、抓拍门限0.90、分差0；低分抓拍标为 `capture_only`，不确认鸣笛或具体车辆。窗口固定48128采样、更新24064采样，每个候选波束产生七个40×24原始Log-Mel上下文。模型身份、前端、维度和窗口不符会报错；不要将NPZ交给Tiny CNN Verilog。
+
+新版配置明确选择 `spectral` / NumPy SRP，视觉默认关闭。仓库的 `config/default.json` 继续保留旧Tiny默认；打包时显式传入新配置，包内 `config/default.json` 才会采用时间模型。训练权重与生成的zip被Git忽略，仓库源码不包含训练二进制。使用根目录的既有环境：
+
+```powershell
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/run.py --config deployment/pynq_z2/config/band_temporal.json --model prototype/outputs/band_improvements_v1/model-combined --check
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/band_improvements_v1/model-combined --config deployment/pynq_z2/config/band_temporal.json --output deployment/pynq_z2/outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release
+```
+
+生成的独立包在自己的根目录运行，不依赖PC源码或PyTorch/SciPy：
+
+```text
+python run.py --check
+python run.py --replay synchronized-array14.wav --output NEW_REPLAY_OUTPUT
+vivado -mode batch -source scripts/build_ps.tcl -tclargs NEW_BUILD BOARD_REPOSITORY synth
+```
+
+`build_ps.tcl`复用包内14路采集Verilog及PYNQ-Z2约束，不接收模型目录、不实例化CNN或SRP加速核；输出 `horn_capture.bit/hwh`。bit模式仍须设置实测 `PDM_INPUT_MIN_NS/MAX_NS` 并通过时序、CDC及DRC验收。补齐后将同次bit/hwh放入包内 `firmware/`，再执行 `python run.py --output NEW_LIVE_OUTPUT`；如需可选PL SRP，另按下方旧构建入口生成含 `srp_dma` 的匹配overlay，不可对纯采集固件直接开启FPGA SRP。
+
+本机2026-10-28重测：Vivado2019.2缺少XC7Z020器件支持，纯采集入口又在缺少PYNQ-Z2板卡定义处停止。当前包的 `firmware_included=false`、`board_validated=false`，不含可烧录固件。PS推理与回放接入完成不代表ARM实时或道路效果已验收，后续工作见[交接文档](HANDOFF.md)。
+
 ## 可选频带MLP与PCM恢复实验
 
 `detector.backend=spectral` 使用7826参数BandMLP，输入同样是完成的40×24 Log-Mel上下文，PS内部计算保留频带位置的160项统计，再做两层NumPy矩阵乘法；不使用PyTorch、PANNs或CNN DMA。实时采集仍要求与14路接口一致的overlay和PYNQ。默认配置未提升到该研究后端，冻结评测结果与限制见[第12章](../../docs/12_实验设计与评价指标.md)。
@@ -24,7 +47,7 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 打包器将配置中的模型目录改为包内`model`，检查后端与架构匹配。新实验的Tiny模型同样要求显式提供其`recovered_integer-config.json`，以免沿用旧门限；其配置为慢速整数回放，上板需要改成fpga并使用同模型标签的bit/hwh。Tiny的manifest指定原始或去整体均值Log-Mel前端，旧manifest默认原始前端。
 
-BandMLP包中的FPGA构建脚本仍需要独立的TinyCNN导出目录；BandMLP的NPZ不能输入TinyCNN Verilog。可在外部用已验证Tiny导出构建采集overlay，再将同次bit/hwh加入BandMLP运行包；BandMLP路径只使用采集及可选SRP，不要求闲置CNN核的模型标签与MLP相同。当前尚无可用目标bit/hwh，运行包明确不含firmware，不称为可直接上板验收的固件。
+旧 `scripts/build.tcl` 构建采集/CNN/可选SRP，仍需要独立的TinyCNN导出目录；BandMLP的NPZ不能输入TinyCNN Verilog。纯采集可使用新增 `scripts/build_ps.tcl`，不需要CNN权重；如果复用采集/CNN/SRP overlay，BandMLP路径只使用采集及可选SRP，不要求闲置CNN核的模型标签与MLP相同。当前尚无可用目标bit/hwh，运行包明确不含firmware，不称为可直接上板验收的固件。
 
 PC上12个热身后测量窗中，完整NumPy声学＋事件（不含采集、相机、视觉和I/O）BandMLP中位约131 ms、整数软件Tiny约179 ms；这是本机48000样本窗口，不能换算成ARM实时性能或PL CNN时间。新增证据无效/方向歧义语义见[相机说明](CAMERA.md)。
 
@@ -69,6 +92,8 @@ PC上12个热身后测量窗中，完整NumPy声学＋事件（不含采集、�
 模型参数路径在命令行按当前工作目录解释；配置内相对路径按部署根目录解释。模型来自本地旧实验，缺失时明确失败，不下载或使用未训练权重替代。源码包不含训练二进制、图像模型或构建产物；打包器将指定模型加入被忽略的本地目录/zip，并收集vendor/fpga所需源码，不需要原仓库运行。
 
 可通过 `--bitstream` 和 `--handoff` 同时加入同次构建的bit/hwh；不提供则bundle.json明确标注firmware_included=false。打包不等于实际板上验收，始终记录board_validated=false。视觉/USB采集需要另行批准/提供OpenCV，视觉还需要指定SHA256的兼容模型，本轮未安装依赖或下载模型。输入格式仅支持明确的decoded YOLO，不支持任意检测模型输出。
+
+时间模型的固件文件在包内统一命名为 `firmware/horn_capture.bit/hwh`，其他既有模型包沿用 `horn_cnn.bit/hwh`；打包器同步修正配置中的overlay路径。可选systemd模板接受两种bit文件名，实际入口仍检查配置指定的同名bit/hwh。模板未在本机安装或启动。
 
 `run.py --check`只检查配置及模型；实时入口还要求匹配的bit/hwh、板端PYNQ和NumPy。程序仅在PS运行Python，不要求MicroBlaze/RISC-V。默认vision.enabled=false：可记录音频事件，不会伪造照片或车辆检测。main默认camera.sources为wide-0的/dev/video0、1920×1080 MJPG30；建议按实际USB设备改为稳定的/dev/v4l/by-id路径，确认不是板载麦克风接口。HTTP仍可通过`{"id":"wide-0","backend":"http","uri":"http://CAMERA/snapshot.jpg"}`配置；历史WAV回放不能混用当前实况图像。
 
