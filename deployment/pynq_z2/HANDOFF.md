@@ -4,11 +4,17 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-2026-10-31可选快速包为 `deployment/pynq_z2/outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`，仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
+2026-10-31最新可选快速包为 `deployment/pynq_z2/outputs/beam_fast_v1_20261031/pynq_z2_beam_fast.zip`；此前仅SRP加速的 `outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`保留。仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
 
-快速包选择PS C内核、91对、4倍折叠FFT、single PHAT累加、完整网格，模型与相机语义不变。包不含开发机DLL或ARM预编译库，先在板端执行 `python scripts/build_search.py`，再 `python run.py --check`；需要镜像中已有GCC，缺少时由合作者准备工具链，不自动联网安装。库构建会做双精度及单精度数值自检，记录机器类型、源文件/库SHA256；ABI必须为2。Linux产物为 `ps/libsrp.so`，不可复制Windows DLL替代。2026-10-28纯NumPy包仍保留在 `outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip` 供回退与对照。
+快速包选择PS C SRP内核、91对、4倍折叠FFT、single PHAT累加、完整网格；本轮另加入1024点overlap-save候选波束，复用14路输入频谱，完整保留65抽头和参考窗首截断，模型与相机语义不变。包不含开发机DLL或ARM预编译库，先在板端执行 `python scripts/build_search.py`，再 `python run.py --check`；需要镜像中已有GCC，缺少时由合作者准备工具链，不自动联网安装。SRP库构建会做双精度及单精度数值自检，记录机器类型、源文件/库SHA256；ABI必须为2。Linux产物为 `ps/libsrp.so`，不可复制Windows DLL替代。FFT波束不需要额外库；`native_build_components=["search"]`。2026-10-28纯NumPy包仍保留在 `outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip` 供回退与对照。
 
-两个包均含PS Python、模型、配置、采集Verilog、约束与构建入口，不含bit/hwh或视觉权重。可复用合作者已经验收的同接口采集overlay；本机缺少目标Vivado器件/板卡支持的状态不构成合作者现有固件的验证。快速C库不改变PL接口，默认仍使用 `search.backend=numpy` 表示PS执行。
+这些包均含PS Python、模型、配置、采集Verilog、约束与构建入口，不含bit/hwh或视觉权重。可复用合作者已经验收的同接口采集overlay；本机缺少目标Vivado器件/板卡支持的状态不构成合作者现有固件的验证。快速C库和FFT波束不改变PL接口，默认仍使用 `search.backend=numpy` 表示PS执行。
+
+波束验收先执行 `python scripts/benchmark_beam.py --input synchronized-array14.wav --output NEW_BEAM_BENCHMARK.json`，对相同SRP和模型只替换波束后端。保留中位/P90/最大耗时、分数差、输入/源码哈希及实际机器信息，并核对事件中的`beamforming_diagnostics`。比较含视觉全流程时继续记录采集等待、`capture.phase_seconds`、gap及skipped_windows，不能将电脑的波束比例乘6.5秒。合并已有实机配置只添加`beamforming`节，保留已标定的麦克风、相机、视觉模型和overlay；波束无需重新训练模型。若需回退，改`beamforming.implementation=reference`，不要同时修改SRP或门限。
+
+可选C FIR后端独立于SRP库，ABI=1，构建入口`python scripts/build_beam.py`，Linux产物`ps/libbeam.so`。使用时须显式选择`beamforming.implementation=native`，并在同机与reference/FFT比较速度与数值；默认包不启用它。构建器不会安装编译器、覆盖旧库或改杀毒设置，开发机DLL不作为ARM部署产物。
+
+本轮1008个构造场景中FFT波束保持快速SRP基线的全部方向/检测/抓拍计数，主360°/可见F1为0.6667/0.6308，压力为0.6512/0.6032；这不消除既有检测召回和SRP近似带来的限制。配对PC回放波束中位19.63→7.08 ms、声学总31.44→18.08 ms，详见[部署说明](README.md)。当前没有板端新测速，含采集及视觉的6.5秒降到5%–10%的目标仍未验收。C直接FIR的本机对照没有比FFT更快，不改为默认。
 
 旧 `prototype/outputs/horn_recovery_v1/` 保留早期模型、计划、RTL对拍和独立运行包；时间模型与抓拍工作点证据分别在 `band_improvements_v1/`、`capture_policy_v1/`。训练产物不进入Git；合作者需取得本地包或按原型说明重放，不应在新checkout中假定这些文件存在。包内科研/非商业模型不可据此重分发原始数据。
 
@@ -22,7 +28,7 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 合并配置时保留合作者已验收的14路校准、相机内外参、USB、视觉权重与overlay路径，只应用快速search字段及同款模型门限。源码示例视觉关闭且几何为名义值，不能覆盖真实配置后以少运行视觉来证明6.5秒目标达标。
 
-本机冻结主/压力评测中SRP比例约5.9%–7.1%，抓拍召回和负例抓拍数不变，但原主协议和可见压力组各少1个正确接受方向。完整声学诊断约142.8→34.3 ms、约原24%，仍未实现完整链路5%–10%的目标，候选波束成为下一热点。合作者应先返回真实ARM分项测速，再决定继续优化波束、原生前端或解耦视觉；不要直接将本机比率乘6.5秒。精度优先时可用包内 `config/native_exact.json` 运行全频double C模式，再对同一段PCM和现场事件作独立比较。
+此前仅SRP加速的本机冻结主/压力评测中SRP比例约5.9%–7.1%，抓拍召回和负例抓拍数不变，但原主协议和可见压力组各少1个正确接受方向。当时完整声学诊断约142.8→34.3 ms、约原24%；本轮波束优化采用同机配对的新基线，不能把跨次运行耗时直接相除。完整链路5%–10%的目标仍未验收。合作者应先返回真实ARM分项测速，再决定是否优化原生前端或解耦视觉；不要直接将本机比率乘6.5秒。精度优先时可用包内 `config/native_exact.json` 运行全频double C模式，再对同一段PCM和现场事件作独立比较。
 
 区域剪枝是可选实验模式，需检查粗证据、区域补搜与全搜回退率；当前快速配置采用完整网格，原因是本机C直接打分比区域管理更快。固定35对虽更快但验证召回下降，未提升为默认。折叠FFT频率梳及单精度不是全频NumPy的逐位等价实现，必须重新核查板端道路效果；模型门限不得根据本次复用测试集继续调整。
 

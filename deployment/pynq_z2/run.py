@@ -74,6 +74,10 @@ def main(argv=None):
     if config['search'].get('algorithm', 'reference') != 'reference':
         from ps.search import Search
         searcher = Search(config['audio'], config['search'])
+    beamformer = None
+    if config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
+        from ps.beamforming import Beamformer
+        beamformer = Beamformer(config['audio'], config['beamforming'])
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'classifier': metadata['architecture'], 'detector_backend': config['detector']['backend'],
@@ -83,6 +87,7 @@ def main(argv=None):
                           'srp_backend': config['search'].get('backend', 'numpy'),
                           'search_algorithm': config['search'].get('algorithm', 'reference'),
                           'search_implementation': config['search'].get('implementation', 'numpy'),
+                          'beamforming_implementation': config.get('beamforming', {}).get('implementation', 'reference'),
                           'vision_enabled': config['vision']['enabled']}))
         return 0
     if args.output and args.output_root:
@@ -134,7 +139,7 @@ def main(argv=None):
             vision = Vision(settings)
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
-        pipeline = Pipeline(config, detector, scorer, searcher)
+        pipeline = Pipeline(config, detector, scorer, searcher, beamformer)
         clock_origin, clock_epoch = None, None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:

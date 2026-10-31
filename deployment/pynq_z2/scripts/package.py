@@ -36,7 +36,7 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
         from ps.configuration import load_config
         config = load_config(configuration)
         validate_backend(config, metadata)
-        if 'native_library' in config['search']:
+        if 'native_library' in config['search'] or 'native_library' in config.get('beamforming', {}):
             raise ValueError('Portable packages cannot retain a host-specific native library override; build the library on the target')
         config['detector']['model_directory'] = 'model'
     elif metadata['architecture'] in ('BandMLP-7826', 'BandTemporalMLP-30866') or metadata.get('provenance', {}).get('plan_sha256'):
@@ -89,7 +89,11 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
     files = {path.relative_to(output).as_posix(): digest(path) for path in output.rglob('*') if path.is_file()}
     manifest = {'format': 1, 'model_tag': metadata['model_tag'], 'classifier': metadata['architecture'], 'files': files,
                 'firmware_included': bool(bitstream), 'board_validated': False,
-                'native_build_required': bool(config and config['search'].get('implementation') == 'native'),
+                'native_build_required': bool(config and (config['search'].get('implementation') == 'native'
+                                              or config.get('beamforming', {}).get('implementation') == 'native')),
+                'native_build_components': ([name for name, settings in [('search', config['search']),
+                                            ('beamforming', config.get('beamforming', {}))]
+                                            if settings.get('implementation') == 'native'] if config else []),
                 'native_library_included': False,
                 'vision_weights_included': False, 'license_scope': 'research/noncommercial; model provenance in model/manifest.json'}
     (output / 'bundle.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')

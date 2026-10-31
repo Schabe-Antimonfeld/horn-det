@@ -24,6 +24,11 @@
     "fft_fold": 4,
     "pair_mode": "all"
   },
+  "beamforming": {
+    "implementation": "fft",
+    "fft_size": 1024,
+    "cache_size": 64
+  },
   "detector": {
     "threshold": 0.95,
     "capture_threshold": 0.9,

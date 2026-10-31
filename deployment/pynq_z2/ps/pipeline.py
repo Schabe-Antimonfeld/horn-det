@@ -41,7 +41,7 @@ class Events:
 
 
 class Pipeline:
-    def __init__(self, config, detector, scorer=None, searcher=None):
+    def __init__(self, config, detector, scorer=None, searcher=None, beamformer=None):
         self.config, self.detector = config, detector
         if config['search'].get('backend', 'numpy') == 'fpga' and scorer is None:
             raise ValueError('FPGA SRP requires an initialized DMA scorer')
@@ -50,6 +50,10 @@ class Pipeline:
         if config['search'].get('algorithm', 'reference') != 'reference':
             from ps.search import Search
             self.searcher = searcher if searcher is not None else Search(config['audio'], config['search'])
+        self.beamformer = beamformer
+        if self.beamformer is None and config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
+            from ps.beamforming import Beamformer
+            self.beamformer = Beamformer(config['audio'], config['beamforming'])
         self.events = Events(config['event'], config['audio']['update_samples'])
         camera = dict(config['camera'])
         camera.pop('sources')
@@ -67,11 +71,20 @@ class Pipeline:
             diagnostic['algorithm'] = self.searcher.algorithm
         spatial_done = time.perf_counter()
         phases = dict(srp=spatial_done - started, beamforming=0.0, features=0.0, detector=0.0)
-        scores, clipped, frontend_clipped = [], [], []
-        for bearing in bearings:
+        beam_metric = dict(implementation='reference', beams=len(bearings), taps=65, cache_hits=0, fft_size=None)
+        beams = None
+        if self.beamformer is not None:
             step = time.perf_counter()
-            waveform, latency = beamform(snapshot['audio'], bearing, self.config['audio'])
-            phases['beamforming'] += time.perf_counter() - step
+            beams, beam_metric = self.beamformer.run(snapshot['audio'], bearings)
+            phases['beamforming'] = time.perf_counter() - step
+        scores, clipped, frontend_clipped = [], [], []
+        for index, bearing in enumerate(bearings):
+            if beams is None:
+                step = time.perf_counter()
+                waveform, latency = beamform(snapshot['audio'], bearing, self.config['audio'])
+                phases['beamforming'] += time.perf_counter() - step
+            else:
+                waveform, latency = beams[index]
             try:
                 step = time.perf_counter()
                 contexts = features(waveform, getattr(self.detector, 'frontend', 'logmel'))
@@ -118,7 +131,7 @@ class Pipeline:
                       'input_clipped': snapshot['clipped'], 'activation_clipped': any(clipped),
                       'frontend_clipped': any(frontend_clipped),
                       'processing_seconds': time.perf_counter() - started,
-                      'phase_seconds': phases, 'srp_diagnostics': diagnostic,
+                      'phase_seconds': phases, 'srp_diagnostics': diagnostic, 'beamforming_diagnostics': beam_metric,
                       'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
                       'classifier': getattr(self.detector, 'metadata', {}).get('architecture', 'test-detector')})
         evidence = AcousticEvidence(selected, grid) if capture_candidate else None

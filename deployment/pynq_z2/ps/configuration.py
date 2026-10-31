@@ -34,6 +34,8 @@ def validate_config(config):
         raise ValueError('Windows must contain one second and align with capture packets')
     if not 0 < audio['diameter'] <= 1 or audio['speed'] <= 0:
         raise ValueError('Invalid array geometry')
+    from ps.beamforming import validate_options
+    validate_options(config.get('beamforming', {}))
     search = config['search']
     if search.get('backend', 'numpy') not in ('numpy', 'fpga'):
         raise ValueError('Unsupported SRP backend')

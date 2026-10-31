@@ -10,13 +10,49 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## 候选波束快速版（2026-10-31）
+
+`config/band_fast.json`在既有快速SRP后接入PS上的批量分块FFT波束形成，`beamforming.implementation=fft`、`fft_size=1024`、`cache_size=64`。14路输入的分块频谱只计算一次，供所有候选方向使用；每个波束在频域合并14路后只做一次逆FFT，方向滤波系数按精确角度缓存，最多64项。候选数量、65抽头Hann窗sinc、分数延迟符号、公共延迟、输出长度、窗尾截断、一次DC处理及模型前端保持不变，不缩短滤波器、不减少麦克风或候选。
+
+这是原FIR的线性卷积计算方式替换，不是STFT相位近似。overlap-save丢弃每块受循环卷积污染的历史段，并单独恢复参考实现中每路在整数延迟前强制为零的窗首规则；遗漏该规则会改变原模型输入。浮点加法次序不同，所以数值在容差内一致，不承诺逐位相同。波束仍在ARM上运行，不新增PL核或DMA协议，也不能直接复用SRP的PHAT频谱代替原始音频频谱。
+
+省略`beamforming`或设`implementation=reference`使用原实现；`cached`仅缓存时延和FIR系数，`native`为独立double C FIR实验后端。默认FFT路径不需要波束C库，也不增加Python依赖。C库ABI=1，Linux名为`ps/libbeam.so`、Windows为`ps/beamforming.dll`，按需执行`python scripts/build_beam.py`，并在配置中显式选择native。已有库可用`python scripts/build_beam.py --check PATH_TO_LIBRARY`复核；错误架构、缺库或ABI不符会失败，不能静默切回其他后端。构建器不覆盖现有文件、不安装工具、不修改系统安全设置。ARMv7实际速度仍需在目标镜像测量。
+
+同一SRP/模型/音频的波束专用比较，在部署包目录执行：
+
+```text
+python scripts/build_search.py
+python run.py --check
+python scripts/benchmark_beam.py --input synchronized-array14.wav --output NEW_BEAM_BENCHMARK.json
+python run.py --replay synchronized-array14.wav --output NEW_REPLAY_OUTPUT
+```
+
+`benchmark_beam.py`只替换波束后端，报告波束与声学总耗时的中位/P90/最大值、初始化耗时、输入/源码/权重哈希及分数误差，并核对事件判定。额外比较1/2/4个固定候选；`--sweep`比较系数缓存、512/1024点FFT，配合`--native-library`可加入本机C库。此项与`benchmark_search.py`不同：后者保留配置中的波束设置，仅切换SRP；不要把其声学总耗时解释为历史完整原始链路。两个工具都不计采集等待、视觉、日志及冷启动。
+
+可复现实验入口为源码仓库的`prototype/optimize_beam.py`：依次`plan`、`phase --split validation`、`select`、`phase --split test`、`phase --split stress`、`verify`。独立产物位于`prototype/outputs/beam_optimization_v1_20261031/`，不覆盖此前实验；如要让C参与选型，必须在首次plan时提供`--native-library`，不能测试后修改冻结计划。两套协议共336个验证场景预选1024点FFT，波束时间中位约为参考的33.8%，仅缓存约95.9%。这是公开录音构造阵列、复用来源划分的对拍，不是新道路盲测或连续事件性能证明。
+
+验证、主测试、压力测试各336个场景，总计1008个，FFT与已选快速SRP搭配原波束时的方向、检测及抓拍门限计数一致；最大波形误差`5.56e-16`、特征误差`9.60e-14`、分类分数差`2.45e-15`。联合F1如下，比较基线是本轮开始前的快速SRP，不是历史全频SRP：
+
+| 协议 | 原波束 | FFT波束 |
+|---|---:|---:|
+| 主测试360° | 0.6667 | 0.6667 |
+| 主测试可见区域 | 0.6308 | 0.6308 |
+| 压力360° | 0.6512 | 0.6512 |
+| 压力可见区域 | 0.6032 | 0.6032 |
+
+本机AMD64、NumPy2.5.3、相同48128样本完成窗、相同快速SRP、两个窗口各重复15次，`acoustic-benchmark-final.json`测得波束中位19.63→7.08 ms、P90为22.18→7.97 ms，声学总中位31.44→18.08 ms、P90为33.51→21.13 ms。逐窗配对耗时比例中位分别为0.360和0.601；它们不等于两个中位数直接相除。单独1/2/4波束测得9.89/20.33/42.87→6.37/6.98/9.42 ms，候选越多，共享输入频谱的收益越明显。报告同时记录首窗耗时；不要把稳态数据当冷启动或ARM性能。
+
+C库恢复可读后，52项波束检查全部通过，含C/FFT/缓存、冲激边界、非连续数组、静音、完整窗特征、旧整数模型及事件判定。另作同PCM的C对照：直接FIR的波束耗时约为原实现96%，FFT约43%（`native-sweep.json`），因此没有改动验证阶段已选定的FFT方案。C对照只属于本机数值/速度证据，不声称C参加了上述1008场景评测。ARM上的两种实现仍需实测，不能把“使用C”本身当作加速结论。
+
+事件的`beamforming_diagnostics`记录实际实现、候选数、抽头数、FFT长度及本次缓存命中数；`phase_seconds.beamforming`包括批量频谱计算和窗首修正。新版完整包保存为`outputs/beam_fast_v1_20261031/pynq_z2_beam_fast.zip`，旧SRP包保留。包内仍须先构建SRP库，`native_build_components`明确列出需要构建的组件；默认波束FFT不要求构建`libbeam.so`。模型、声学/视觉证据边界及硬件验收要求见[交接文档](HANDOFF.md)。
+
 ## 可选SRP快速版（2026-10-31）
 
-`config/band_fast.json`保留同一时间BandMLP、方向0.95/抓拍0.90、14路、48128样本及24064样本更新，使用PS上的可选C内核。验证集预选为91对、完整5580方向、4倍折叠FFT、single PHAT累加；浮点GCC、延迟查表与空间响应仍由PS产生，不启用PL SRP DMA。仓库原默认配置与 `band_temporal.json` 保留原全频NumPy基线。
+`config/band_fast.json`保留同一时间BandMLP、方向0.95/抓拍0.90、14路、48128样本及24064样本更新，SRP使用PS上的可选C内核，波束使用上节FFT实现。SRP验证集预选为91对、完整5580方向、4倍折叠FFT、single PHAT累加；浮点GCC、延迟查表与空间响应仍由PS产生，不启用PL SRP DMA。仓库原默认配置与 `band_temporal.json` 保留原全频NumPy/原波束基线。
 
 C内核通过ctypes加载本机库，ABI=2，不依赖新的Python包。库缺失、架构不匹配或ABI不符会明确失败，不会悄悄切回慢速路径。运行包只携带 `ps/search_kernel.c` 和构建入口，不复制开发电脑DLL到ARM；须在目标机用已有GCC编译，构建工具不会自动安装编译器。Windows默认生成 `ps/srp_search.dll`，Linux默认生成 `ps/libsrp.so`，并保存源文件/库哈希与数值自检JSON。已有库不覆盖，应在新包目录构建，或用 `--output` 新路径及配置内绝对 `native_library` 调试。
 
-快速包另含 `config/native_exact.json`：全频、double、91对完整网格，同一C库即可运行，主/压力测试方向与检测计数保持基线，可作精度优先对照。当前快速模式的SRP主/压力时间约为基线5.9%–7.1%，原主协议和可见压力组各少1个正确接受方向；完整声学本机诊断仍约为基线24%，含视觉的ARM全流程目标未验收。详细数值与证据边界见第12章。
+快速包另含 `config/native_exact.json`：全频、double、91对完整网格，同一C库即可运行，可作SRP精度优先对照，波束仍沿用包的配置。此前仅SRP快速版的主/压力时间约为基线5.9%–7.1%，原主协议和可见压力组各少1个正确接受方向；其完整声学本机诊断约为基线24%，含视觉的ARM全流程目标未验收。这些历史数据不包含本轮波束加速。详细数值与证据边界见第12章。
 
 迁移到已有实机配置时，只合并经过验证的search选项与对应模型/门限，保留真实麦克风校准、相机内外参、视觉模型、USB及overlay路径。默认包视觉关闭是因为不含已验证视觉权重；不得通过关闭原有视觉来声称含视觉的全流程提速达标。
 
@@ -34,7 +70,7 @@ python run.py --output NEW_LIVE_OUTPUT
 源码根目录打包使用：
 
 ```powershell
-.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/band_improvements_v1/model-combined --config deployment/pynq_z2/config/band_fast.json --output deployment/pynq_z2/outputs/srp_fast_v1_20261031/pynq_z2_srp_fast
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/band_improvements_v1/model-combined --config deployment/pynq_z2/config/band_fast.json --output deployment/pynq_z2/outputs/beam_fast_v1_20261031/pynq_z2_beam_fast
 ```
 
 包标记 `native_build_required=true`、`native_library_included=false`。不能打包含开发机绝对库路径的调试配置。`search.algorithm`另支持 `cached` / `hierarchical`，`pair_mode`支持all/mixed35，`fft_fold`支持1/2/4/8，`native_precision`支持double/single。区域上界剪枝和粗峰细搜已经实现，但本机验证时C完整网格稍快且证据更完整，故未默认启用层级搜索。固定35对和更激进频率梳因召回损失未通过约束，不以更少打分点冒充更好的方案。

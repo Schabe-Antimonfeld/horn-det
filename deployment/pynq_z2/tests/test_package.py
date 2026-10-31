@@ -181,6 +181,7 @@ def test_fast_bundle_requires_target_build_then_replays_and_benchmarks(tmp_path)
     checked = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
                              check=True, capture_output=True, text=True, timeout=30)
     assert json.loads(checked.stdout)['search_implementation'] == 'native'
+    assert json.loads(checked.stdout)['beamforming_implementation'] == 'fft'
     samples = np.arange(48128)[:, None] / 48000 + 0.12 * np.cos(np.arange(14)[None] * 2 * np.pi / 14) / 343
     audio = (5000 * np.sin(2 * np.pi * 700 * samples)).astype('<i2')
     source = tmp_path / 'array14.wav'
@@ -194,6 +195,8 @@ def test_fast_bundle_requires_target_build_then_replays_and_benchmarks(tmp_path)
     event = json.loads((tmp_path / 'run/events.jsonl').read_text())
     assert event['scores'] and event['srp_diagnostics']['pair_count'] == 91
     assert event['srp_diagnostics']['fft_length'] == 256 and event['srp_diagnostics']['native_precision'] == 'single'
+    assert event['beamforming_diagnostics']['implementation'] == 'fft'
+    assert event['beamforming_diagnostics']['taps'] == 65
     subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_search.py'), '--input', str(source),
                     '--output', str(tmp_path / 'benchmark.json'), '--windows', '1', '--repeats', '1'],
                    cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
@@ -201,4 +204,39 @@ def test_fast_bundle_requires_target_build_then_replays_and_benchmarks(tmp_path)
     assert measured['windows'] == 1 and measured['relative_time']['srp'] > 0
     assert measured['search_configuration']['fft_fold'] == 4 and measured['window_samples'] == 48128
     assert measured['phase_seconds']['optimized']['total']['median'] > 0
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_beam.py'), '--input', str(source),
+                    '--output', str(tmp_path / 'beam.json'), '--windows', '1', '--repeats', '1'],
+                   cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
+    beam = json.loads((tmp_path / 'beam.json').read_text())
+    assert beam['relative_time']['optimized']['beamforming'] > 0
+    assert beam['search_configuration'] == measured['search_configuration']
+    assert beam['maximum_score_error']['optimized'] < 2e-10
+    assert manifest['native_build_components'] == ['search']
+    assert 'ps/beam_kernel.c' in manifest['files'] and 'scripts/build_beam.py' in manifest['files']
     module.verify(bundle)
+
+
+def test_native_beam_package_rejects_host_override_and_missing_library_before_output(tmp_path):
+    model = ROOT.parents[1] / 'prototype/outputs/band_improvements_v1/model-combined'
+    if not model.is_dir():
+        pytest.skip('Optional local temporal weights absent')
+    specification = importlib.util.spec_from_file_location('native_beam_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+    config = json.loads((ROOT / 'config/band_temporal.json').read_text())
+    config['beamforming'] = dict(implementation='native', native_library=str(tmp_path / 'host.dll'))
+    path = tmp_path / 'configuration.json'
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='host-specific'):
+        module.package(model, tmp_path / 'invalid', configuration=path)
+    assert not (tmp_path / 'invalid').exists()
+    config['beamforming'].pop('native_library')
+    path.write_text(json.dumps(config))
+    bundle = tmp_path / 'beam-native'
+    manifest = module.package(model, bundle, configuration=path)
+    assert manifest['native_build_required'] and manifest['native_build_components'] == ['beamforming']
+    output = tmp_path / 'not-created'
+    result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--output', str(output)],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode != 0 and 'build_beam.py' in result.stderr
+    assert not output.exists()
