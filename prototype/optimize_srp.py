@@ -24,14 +24,16 @@ from ps.geometry import AcousticEvidence, Association, associate, route_cameras
 from ps.search import Search
 
 REFERENCE = frozen.reference
-OUTPUT = PROTO / 'outputs/srp_optimization_v2_20261031'
+OUTPUT = PROTO / 'outputs/srp_optimization_v3_20261031'
+LIBRARY = OUTPUT / ('srp_search_vector.dll' if sys.platform == 'win32' else 'libsrp.so')
 VARIANTS = dict(cached91=dict(algorithm='cached'),
-                mixed35=dict(algorithm='cached', pair_mode='mixed35'),
-                hier35=dict(algorithm='hierarchical', pair_mode='mixed35', bounds=False),
-                bounded35=dict(algorithm='hierarchical', pair_mode='mixed35'),
-                folded35=dict(algorithm='hierarchical', pair_mode='mixed35', fft_fold=4),
-                compact35=dict(algorithm='hierarchical', pair_mode='mixed35', fft_fold=8),
-                folded91=dict(algorithm='hierarchical', pair_mode='all', fft_fold=4))
+                native91=dict(algorithm='cached', implementation='native'),
+                native4=dict(algorithm='cached', implementation='native', fft_fold=4),
+                native8=dict(algorithm='cached', implementation='native', fft_fold=8),
+                pruned4=dict(algorithm='hierarchical', implementation='native', fft_fold=4),
+                pruned8=dict(algorithm='hierarchical', implementation='native', fft_fold=8),
+                single4=dict(algorithm='cached', implementation='native', fft_fold=4, native_precision='single'),
+                native35=dict(algorithm='hierarchical', implementation='native', pair_mode='mixed35', fft_fold=8))
 SETTINGS = dict(variants=VARIANTS, regions=6, coarse_azimuth=6, coarse_depression=15,
                 maximum_candidate_loss=1, maximum_direction_loss=2, maximum_f1_loss=0.02,
                 maximum_capture_loss=0.02, maximum_extra_negative=2, maximum_visual_loss=2,
@@ -51,7 +53,9 @@ def plan():
              frozen.OUTPUT / 'freeze.json', frozen.OUTPUT / 'model-combined/manifest.json',
              frozen.OUTPUT / 'model-combined/weights.npz', REFERENCE.OUTPUT / 'plan.json',
              PROTO.parent / 'deployment/pynq_z2/ps/dsp.py', PROTO.parent / 'deployment/pynq_z2/ps/search.py',
-             PROTO.parent / 'deployment/pynq_z2/ps/band.py', PROTO.parent / 'deployment/pynq_z2/ps/geometry.py']
+             PROTO.parent / 'deployment/pynq_z2/ps/band.py', PROTO.parent / 'deployment/pynq_z2/ps/geometry.py',
+             PROTO.parent / 'deployment/pynq_z2/ps/search_kernel.c',
+             PROTO.parent / 'deployment/pynq_z2/scripts/build_search.py', LIBRARY, LIBRARY.with_name(LIBRARY.name + '.json')]
     value = dict(format=1, settings=SETTINGS,
                  frozen={str(path.relative_to(PROTO.parent)): digest(path) for path in paths},
                  selection='validation original/visible both pass predefined quality guards; minimize median paired SRP runtime ratio; no gate/model retraining',
@@ -64,11 +68,15 @@ def plan():
 
 
 def check_plan():
+    """Check live runtime inputs and, when needed, the immutable compiler-driver snapshot."""
     value = read_json(OUTPUT / 'plan.json')
     if value['settings'] != SETTINGS:
         raise ValueError('SRP experiment settings changed')
     for name, checksum in value['frozen'].items():
-        if digest(PROTO.parent / name) != checksum:
+        path = PROTO.parent / name
+        if path.name == 'build_search.py' and digest(path) != checksum:
+            path = OUTPUT / 'source-snapshot/build_search.py'
+        if not path.is_file() or digest(path) != checksum:
             raise ValueError('Frozen input changed: ' + name)
     return value
 
@@ -115,9 +123,13 @@ def prepare(split):
     if split != 'validation' and not (OUTPUT / 'freeze.json').exists():
         raise ValueError('Freeze search choice before held-out evaluation')
     config = load_config(PROTO.parent / 'deployment/pynq_z2/config/band_temporal.json')
-    engines = {name: Search(config['audio'], dict(config['search'], regions=SETTINGS['regions'],
-                    coarse_azimuth=SETTINGS['coarse_azimuth'], coarse_depression=SETTINGS['coarse_depression'], **settings))
-               for name, settings in VARIANTS.items()}
+    engines = {}
+    for name, settings in VARIANTS.items():
+        parameters = dict(config['search'], regions=SETTINGS['regions'], coarse_azimuth=SETTINGS['coarse_azimuth'],
+                          coarse_depression=SETTINGS['coarse_depression'], **settings)
+        if parameters.get('implementation') == 'native':
+            parameters['native_library'] = str(LIBRARY)
+        engines[name] = Search(config['audio'], parameters)
     detector = frozen.BandDetector(frozen.OUTPUT / 'model-combined')
     source_plan = REFERENCE.check_plan()
     rig = camera_rig()
@@ -308,7 +320,8 @@ def verify():
                     raise ValueError('Unique scoring count exceeds full grid')
                 comparisons += len(rows)
     write_json(OUTPUT / 'verification.json', dict(result='passed', matched_scene_methods=comparisons,
-               old_inputs_unchanged=True, selected=choice['selected'], board_validated=False))
+               old_inputs_unchanged=True, selected=choice['selected'], board_validated=False,
+               compiler_driver_snapshot=str(OUTPUT / 'source-snapshot/build_search.py')))
     print('SRP verification passed', comparisons, flush=True)
 
 

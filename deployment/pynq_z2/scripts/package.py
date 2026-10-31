@@ -36,6 +36,8 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
         from ps.configuration import load_config
         config = load_config(configuration)
         validate_backend(config, metadata)
+        if 'native_library' in config['search']:
+            raise ValueError('Portable packages cannot retain a host-specific native library override; build the library on the target')
         config['detector']['model_directory'] = 'model'
     elif metadata['architecture'] in ('BandMLP-7826', 'BandTemporalMLP-30866') or metadata.get('provenance', {}).get('plan_sha256'):
         raise ValueError('Recovery models require their frozen operating configuration')
@@ -55,13 +57,17 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
             text = path.read_text(encoding='utf-8').replace('](../../docs/',
                    '](https://github.com/Schabe-Antimonfeld/horn-det/blob/main/docs/')
             (output / path.name).write_text(text, encoding='utf-8')
-    for folder, pattern in [('ps', '*.py'), ('config', '*.json'), ('scripts', '*.py'), ('scripts', '*.tcl'),
+    for folder, pattern in [('ps', '*.py'), ('ps', '*.c'), ('config', '*.json'), ('scripts', '*.py'), ('scripts', '*.tcl'),
                              ('scripts', '*.service'), ('rtl', '*.v')]:
         (output / folder).mkdir(exist_ok=True)
         for path in (ROOT / folder).glob(pattern):
             shutil.copy2(str(path), str(output / folder / path.name))
     if config is not None:
         (output / 'config/default.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
+        if config['search'].get('implementation') == 'native':
+            exact = json.loads(json.dumps(config))
+            exact['search'].update(algorithm='cached', fft_fold=1, pair_mode='all', native_precision='double')
+            (output / 'config/native_exact.json').write_text(json.dumps(exact, indent=2), encoding='utf-8')
     vendor = ROOT / 'vendor/fpga'
     if not vendor.is_dir():
         vendor = ROOT.parents[1] / 'fpga'
@@ -83,6 +89,8 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
     files = {path.relative_to(output).as_posix(): digest(path) for path in output.rglob('*') if path.is_file()}
     manifest = {'format': 1, 'model_tag': metadata['model_tag'], 'classifier': metadata['architecture'], 'files': files,
                 'firmware_included': bool(bitstream), 'board_validated': False,
+                'native_build_required': bool(config and config['search'].get('implementation') == 'native'),
+                'native_library_included': False,
                 'vision_weights_included': False, 'license_scope': 'research/noncommercial; model provenance in model/manifest.json'}
     (output / 'bundle.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     verify(output)

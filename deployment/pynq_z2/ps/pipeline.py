@@ -41,11 +41,15 @@ class Events:
 
 
 class Pipeline:
-    def __init__(self, config, detector, scorer=None):
+    def __init__(self, config, detector, scorer=None, searcher=None):
         self.config, self.detector = config, detector
         if config['search'].get('backend', 'numpy') == 'fpga' and scorer is None:
             raise ValueError('FPGA SRP requires an initialized DMA scorer')
         self.scorer = scorer
+        self.searcher = None
+        if config['search'].get('algorithm', 'reference') != 'reference':
+            from ps.search import Search
+            self.searcher = searcher if searcher is not None else Search(config['audio'], config['search'])
         self.events = Events(config['event'], config['audio']['update_samples'])
         camera = dict(config['camera'])
         camera.pop('sources')
@@ -53,14 +57,28 @@ class Pipeline:
         self.captured = 0
 
     def analyze(self, snapshot):
-        started = time.monotonic()
-        grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'], self.scorer)
-        bearings = candidates(grid, self.config['search']['candidates'], self.config['search']['separation'])
+        started = time.perf_counter()
+        if self.searcher is None:
+            grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'], self.scorer)
+            bearings = candidates(grid, self.config['search']['candidates'], self.config['search']['separation'])
+            diagnostic = dict(algorithm='reference', pair_count=91, evidence_grid='complete_fine')
+        else:
+            grid, bearings, diagnostic = self.searcher.run(snapshot['audio'])
+            diagnostic['algorithm'] = self.searcher.algorithm
+        spatial_done = time.perf_counter()
+        phases = dict(srp=spatial_done - started, beamforming=0.0, features=0.0, detector=0.0)
         scores, clipped, frontend_clipped = [], [], []
         for bearing in bearings:
+            step = time.perf_counter()
             waveform, latency = beamform(snapshot['audio'], bearing, self.config['audio'])
+            phases['beamforming'] += time.perf_counter() - step
             try:
-                result = self.detector.score(features(waveform, getattr(self.detector, 'frontend', 'logmel')))
+                step = time.perf_counter()
+                contexts = features(waveform, getattr(self.detector, 'frontend', 'logmel'))
+                phases['features'] += time.perf_counter() - step
+                step = time.perf_counter()
+                result = self.detector.score(contexts)
+                phases['detector'] += time.perf_counter() - step
             except FrontendOverflow:
                 result = dict(score=0.0, clipped=False, frontend_clipped=True)
             scores.append(result['score'])
@@ -99,7 +117,8 @@ class Pipeline:
                       'depression': selected.depression if valid else None, 'scores': scores,
                       'input_clipped': snapshot['clipped'], 'activation_clipped': any(clipped),
                       'frontend_clipped': any(frontend_clipped),
-                      'processing_seconds': time.monotonic() - started,
+                      'processing_seconds': time.perf_counter() - started,
+                      'phase_seconds': phases, 'srp_diagnostics': diagnostic,
                       'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
                       'classifier': getattr(self.detector, 'metadata', {}).get('architecture', 'test-detector')})
         evidence = AcousticEvidence(selected, grid) if capture_candidate else None
@@ -108,6 +127,8 @@ class Pipeline:
     def capture(self, event, evidence, cache, vision, output, representative_time):
         if event['state'] != 'CONFIRMED' or not event.get('capture_candidate', event['horn_candidate']) or event['event_id'] == self.captured:
             return None
+        started = time.perf_counter()
+        vision_seconds = 0.0
         hypotheses = event.get('capture_candidates') or event.get('direction_candidates') or [dict(azimuth=event['azimuth'])]
         routes = [route_cameras(self.rig, hypothesis['azimuth']) for hypothesis in hypotheses]
         selected = sorted({identity for route in routes for identity in route})
@@ -119,13 +140,16 @@ class Pipeline:
             camera = next(item for item in self.rig.cameras() if item.identity == identity)
             if frame['image'].shape[:2] != (camera.height, camera.width):
                 raise ValueError('Captured image dimensions disagree with camera calibration')
+            step = time.perf_counter()
             boxes = vision.infer(frame['image'])
+            vision_seconds += time.perf_counter() - step
             for box in boxes:
                 left, top, right, bottom = box['box']
                 box['identity'] = 'observation-' + str(len(detections))
                 detections.append(Detection(box['identity'], identity, tuple(box['box']),
                                             ((left + right) / 2, bottom), frame['time']))
             images.append((identity, frame, boxes))
+        camera_done = time.perf_counter()
         comparisons = []
         for hypothesis in hypotheses:
             support = evidence
@@ -154,12 +178,18 @@ class Pipeline:
         result['verification'] = 'unverified timing/calibration and heuristic box-bottom anchors; no unique vehicle attribution'
         if not event['horn_candidate']:
             result['verification'] = 'low-score capture candidate; horn presence unconfirmed; ' + result['verification']
+        association_done = time.perf_counter()
         for identity, frame, boxes in images:
             name = 'event-{}-{}'.format(event['event_id'], identity)
             (output / (name + '.jpg')).write_bytes(frame['jpeg'])
             vision.annotate(frame['image'], boxes, result, output / (name + '-annotated.jpg'))
         if images:
             self.captured = event['event_id']
+        finished = time.perf_counter()
         return {'selected_cameras': selected, 'association': result, 'photos': len(images),
+                'processing_seconds': finished - started,
+                'phase_seconds': dict(camera_and_routing=camera_done - started - vision_seconds,
+                                      vision=vision_seconds, association=association_done - camera_done,
+                                      save_and_annotation=finished - association_done),
                 'visibility': ('partly_outside_camera_view' if selected and any(not route for route in routes)
                                else 'candidate_in_nominal_or_calibrated_view' if selected else 'outside_camera_view')}

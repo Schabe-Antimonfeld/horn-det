@@ -1,5 +1,7 @@
 from copy import deepcopy
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -55,3 +57,27 @@ def test_search_experiment_blocks_test_before_freeze_and_selection_from_test(mon
     monkeypatch.setattr(module, 'load_result', lambda key: ([dict(split='test')], {}))
     with pytest.raises(ValueError, match='validation sources'):
         module.validation_summary()
+
+
+def test_producer_snapshot_does_not_allow_runtime_kernel_changes(monkeypatch, tmp_path):
+    module = experiment()
+    prototype = tmp_path / 'prototype'
+    prototype.mkdir()
+    output = tmp_path / 'output'
+    (output / 'source-snapshot').mkdir(parents=True)
+    (tmp_path / 'scripts').mkdir()
+    (tmp_path / 'ps').mkdir()
+    driver = tmp_path / 'scripts/build_search.py'
+    kernel = tmp_path / 'ps/search_kernel.c'
+    driver.write_text('original producer')
+    kernel.write_text('unchanged runtime')
+    checksums = {str(path.relative_to(tmp_path)): hashlib.sha256(path.read_bytes()).hexdigest() for path in (driver, kernel)}
+    (output / 'source-snapshot/build_search.py').write_bytes(driver.read_bytes())
+    (output / 'plan.json').write_text(json.dumps(dict(settings=module.SETTINGS, frozen=checksums)))
+    monkeypatch.setattr(module, 'PROTO', prototype)
+    monkeypatch.setattr(module, 'OUTPUT', output)
+    driver.write_text('self-check packaging fix; runtime unchanged')
+    module.check_plan()
+    kernel.write_text('changed runtime')
+    with pytest.raises(ValueError, match='Frozen input changed'):
+        module.check_plan()

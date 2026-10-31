@@ -1,4 +1,7 @@
 from pathlib import Path
+import importlib.util
+import json
+import shutil
 import sys
 
 import numpy as np
@@ -116,3 +119,85 @@ def test_hierarchical_search_keeps_rear_wrap_and_weaker_second_source(monkeypatc
     for angle in (179, -50):
         assert min(abs(wrap_angle(bearing.azimuth - angle)) for bearing in bearings) <= 2
     assert metric['evaluated_directions'] <= 5580
+
+
+@pytest.fixture(scope='module')
+def native_library(tmp_path_factory):
+    if not shutil.which('gcc'):
+        pytest.skip('Optional GCC compiler absent')
+    spec = importlib.util.spec_from_file_location('native_search_builder', ROOT / 'scripts/build_search.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = tmp_path_factory.mktemp('native-search') / ('srp_search.dll' if sys.platform == 'win32' else 'libsrp.so')
+    result = module.build(output)
+    assert result['abi'] == 2 and result['result'] == 'passed'
+    return output
+
+
+@pytest.mark.parametrize('precision,tolerance', [('double', 1e-12), ('single', 1e-6)])
+def test_native_phat_scores_and_local_pruning_match_independent_numpy(native_library, precision, tolerance):
+    config = load_config()
+    settings = dict(config['search'], algorithm='hierarchical', fft_fold=4)
+    reference = Search(config['audio'], settings)
+    native = Search(config['audio'], dict(settings, implementation='native', native_precision=precision,
+                                         native_library=str(native_library)))
+    audio = np.random.default_rng(21).normal(size=(4096, 14))
+    expected, actual = reference.correlations(audio), native.correlations(audio)
+    np.testing.assert_allclose(actual, expected, atol=tolerance, rtol=tolerance)
+    ids = np.arange(0, 5580, 7)
+    np.testing.assert_allclose(native.score(actual, ids), reference.score(expected, ids), atol=tolerance * 91, rtol=tolerance)
+    bound = native.cell_bounds(actual)
+    scores = np.full(5580, np.nan)
+    native._measure(actual, scores, native.anchors)
+    winner, _, _ = native._refine(actual, scores, bound, 59, 3, 1)
+    cells, _ = native._region(59, 3, 1)
+    exhaustive = native.score(actual, np.concatenate([native.cells[index] for index in cells]))
+    assert scores[winner] == pytest.approx(exhaustive.max(), abs=1e-12)
+    _, _, metric = native.run(audio)
+    json.dumps(metric, allow_nan=False)
+    assert metric['implementation'] == 'native' and metric['native_precision'] == precision
+    with pytest.raises(ValueError, match='safe arithmetic'):
+        native.native.phat(np.full((2, 14, 129), np.inf, dtype=complex))
+
+
+def test_native_library_failure_is_explicit_instead_of_silent_numpy_fallback(tmp_path):
+    config = load_config()
+    with pytest.raises(ValueError, match='build_search.py'):
+        Search(config['audio'], dict(config['search'], implementation='native', native_library=str(tmp_path / 'absent.so')))
+
+
+@pytest.mark.parametrize('change', [dict(algorithm='unknown'), dict(algorithm='cached', fft_fold=16),
+                                   dict(algorithm='cached', pair_mode='unknown'),
+                                   dict(algorithm='cached', backend='fpga'),
+                                   dict(algorithm='hierarchical', coarse_azimuth=7),
+                                   dict(algorithm='hierarchical', regions=1),
+                                   dict(algorithm='cached', implementation='native', native_library='relative.so')])
+def test_optimized_search_configuration_rejects_incompatible_contracts(change):
+    from ps.configuration import validate_config
+    config = load_config()
+    config['search'].update(change)
+    with pytest.raises(ValueError):
+        validate_config(config)
+
+
+def test_optimized_pipeline_exposes_measured_grid_and_phase_timing(native_library, tmp_path):
+    from ps.pipeline import Pipeline
+    config = load_config()
+    config['search'].update(algorithm='hierarchical', implementation='native', fft_fold=4, native_library=str(native_library))
+    class Detector:
+        def score(self, contexts):
+            return dict(score=0.9, clipped=False)
+    pipeline = Pipeline(config, Detector())
+    event, evidence = pipeline.analyze(dict(audio=np.random.default_rng(31).normal(size=(4096, 14)),
+                                            first=0, end=4096, epoch=0, clipped=False))
+    assert event['srp_diagnostics']['implementation'] == 'native'
+    assert set(event['phase_seconds']) == {'srp', 'beamforming', 'features', 'detector'}
+    assert all(value >= 0 for value in event['phase_seconds'].values())
+    assert sum(event['phase_seconds'].values()) <= event['processing_seconds']
+    assert evidence is not None and np.isfinite(evidence.grid[2]).all()
+    event, evidence = pipeline.analyze(dict(audio=np.random.default_rng(31).normal(size=(4096, 14)), first=0,
+                                            end=4096 + config['audio']['update_samples'], epoch=0, clipped=False))
+    capture = pipeline.capture(event, evidence, None, None, tmp_path, 0)
+    assert capture is not None and capture['processing_seconds'] >= 0
+    assert all(value >= 0 for value in capture['phase_seconds'].values())
+    assert sum(capture['phase_seconds'].values()) == pytest.approx(capture['processing_seconds'])

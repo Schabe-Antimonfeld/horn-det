@@ -4,7 +4,11 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-2026-10-28最新版为时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；仅支持原始Log-Mel的七上下文窗口。本地独立包为 `deployment/pynq_z2/outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip`，含PS Python、模型、配置、采集Verilog、约束和构建入口，不含bit/hwh或视觉权重。
+2026-10-31可选快速包为 `deployment/pynq_z2/outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`，仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
+
+快速包选择PS C内核、91对、4倍折叠FFT、single PHAT累加、完整网格，模型与相机语义不变。包不含开发机DLL或ARM预编译库，先在板端执行 `python scripts/build_search.py`，再 `python run.py --check`；需要镜像中已有GCC，缺少时由合作者准备工具链，不自动联网安装。库构建会做双精度及单精度数值自检，记录机器类型、源文件/库SHA256；ABI必须为2。Linux产物为 `ps/libsrp.so`，不可复制Windows DLL替代。2026-10-28纯NumPy包仍保留在 `outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip` 供回退与对照。
+
+两个包均含PS Python、模型、配置、采集Verilog、约束与构建入口，不含bit/hwh或视觉权重。可复用合作者已经验收的同接口采集overlay；本机缺少目标Vivado器件/板卡支持的状态不构成合作者现有固件的验证。快速C库不改变PL接口，默认仍使用 `search.backend=numpy` 表示PS执行。
 
 旧 `prototype/outputs/horn_recovery_v1/` 保留早期模型、计划、RTL对拍和独立运行包；时间模型与抓拍工作点证据分别在 `band_improvements_v1/`、`capture_policy_v1/`。训练产物不进入Git；合作者需取得本地包或按原型说明重放，不应在新checkout中假定这些文件存在。包内科研/非商业模型不可据此重分发原始数据。
 
@@ -13,6 +17,14 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 3. 先用同步PCM16 WAV离线回放，再上板核实持续采样、丢包、跳窗、内存、PS温度/CPU、端到端更新周期和相机历史覆盖；各阶段保留health/events记录。模型打包和PC耗时不替代此项。
 4. 采集新的连续道路背景和独立车辆/位置/录音时段；做精确事件标注，报告FP/hour、事件召回/延迟和角度误差。按来源/地点先划分，再切窗，保留画外、遮挡和同方向多车组。不能用本次测试集继续调门限。
 5. 在实测镜头、外参、曝光时钟及车辆接地点通过验收之前，继续标可能车辆并保留歧义；即便可见协议中几何匹配唯一，也不是实际车辆鸣笛证明。
+
+快速模式额外验收：先保存一段同步14路PCM16/48k WAV，在板端执行 `python scripts/benchmark_search.py --input array14.wav --output NEW_BENCHMARK.json`，记录原/新SRP和完整声学中位/P90/最大值、机器与线程环境、初始化耗时及实际耗时比例；分别验收SRP比例≤0.1和声学≤0.65秒，不能混为含采集/视觉的全流程达标。随后实况检查 `phase_seconds`、`capture.phase_seconds`、gap、skipped_windows和确认重置，保留独立道路事件召回及FP/hour。视觉仍同步运行，若它占主要耗时，需要另行解耦，不把SRP加速当作视觉已加速。
+
+合并配置时保留合作者已验收的14路校准、相机内外参、USB、视觉权重与overlay路径，只应用快速search字段及同款模型门限。源码示例视觉关闭且几何为名义值，不能覆盖真实配置后以少运行视觉来证明6.5秒目标达标。
+
+本机冻结主/压力评测中SRP比例约5.9%–7.1%，抓拍召回和负例抓拍数不变，但原主协议和可见压力组各少1个正确接受方向。完整声学诊断约142.8→34.3 ms、约原24%，仍未实现完整链路5%–10%的目标，候选波束成为下一热点。合作者应先返回真实ARM分项测速，再决定继续优化波束、原生前端或解耦视觉；不要直接将本机比率乘6.5秒。精度优先时可用包内 `config/native_exact.json` 运行全频double C模式，再对同一段PCM和现场事件作独立比较。
+
+区域剪枝是可选实验模式，需检查粗证据、区域补搜与全搜回退率；当前快速配置采用完整网格，原因是本机C直接打分比区域管理更快。固定35对虽更快但验证召回下降，未提升为默认。折叠FFT频率梳及单精度不是全频NumPy的逐位等价实现，必须重新核查板端道路效果；模型门限不得根据本次复用测试集继续调整。
 
 ## 本机已知阻塞
 

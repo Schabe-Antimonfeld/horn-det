@@ -10,6 +10,39 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## 可选SRP快速版（2026-10-31）
+
+`config/band_fast.json`保留同一时间BandMLP、方向0.95/抓拍0.90、14路、48128样本及24064样本更新，使用PS上的可选C内核。验证集预选为91对、完整5580方向、4倍折叠FFT、single PHAT累加；浮点GCC、延迟查表与空间响应仍由PS产生，不启用PL SRP DMA。仓库原默认配置与 `band_temporal.json` 保留原全频NumPy基线。
+
+C内核通过ctypes加载本机库，ABI=2，不依赖新的Python包。库缺失、架构不匹配或ABI不符会明确失败，不会悄悄切回慢速路径。运行包只携带 `ps/search_kernel.c` 和构建入口，不复制开发电脑DLL到ARM；须在目标机用已有GCC编译，构建工具不会自动安装编译器。Windows默认生成 `ps/srp_search.dll`，Linux默认生成 `ps/libsrp.so`，并保存源文件/库哈希与数值自检JSON。已有库不覆盖，应在新包目录构建，或用 `--output` 新路径及配置内绝对 `native_library` 调试。
+
+快速包另含 `config/native_exact.json`：全频、double、91对完整网格，同一C库即可运行，主/压力测试方向与检测计数保持基线，可作精度优先对照。当前快速模式的SRP主/压力时间约为基线5.9%–7.1%，原主协议和可见压力组各少1个正确接受方向；完整声学本机诊断仍约为基线24%，含视觉的ARM全流程目标未验收。详细数值与证据边界见第12章。
+
+迁移到已有实机配置时，只合并经过验证的search选项与对应模型/门限，保留真实麦克风校准、相机内外参、视觉模型、USB及overlay路径。默认包视觉关闭是因为不含已验证视觉权重；不得通过关闭原有视觉来声称含视觉的全流程提速达标。
+
+在新解压的快速包根目录执行：
+
+```text
+python scripts/build_search.py
+python run.py --check
+python scripts/benchmark_search.py --input synchronized-array14.wav --output NEW_BENCHMARK.json
+python run.py --output NEW_LIVE_OUTPUT
+```
+
+最后一条仍需要匹配的采集bit/hwh及PYNQ；编译C库不能代替FPGA固件。benchmark默认对最多6个完成窗口各重复3次，先预热，交替执行原NumPy与快速链路；分别报告SRP和完整声学中位/P90/最大值、初始化耗时、比例及0.65秒目标。它排除采集等待、视觉、日志与冷启动，不提供鸣笛事件质量结论；ARM实测输出才是板端速度证据。
+
+源码根目录打包使用：
+
+```powershell
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/band_improvements_v1/model-combined --config deployment/pynq_z2/config/band_fast.json --output deployment/pynq_z2/outputs/srp_fast_v1_20261031/pynq_z2_srp_fast
+```
+
+包标记 `native_build_required=true`、`native_library_included=false`。不能打包含开发机绝对库路径的调试配置。`search.algorithm`另支持 `cached` / `hierarchical`，`pair_mode`支持all/mixed35，`fft_fold`支持1/2/4/8，`native_precision`支持double/single。区域上界剪枝和粗峰细搜已经实现，但本机验证时C完整网格稍快且证据更完整，故未默认启用层级搜索。固定35对和更激进频率梳因召回损失未通过约束，不以更少打分点冒充更好的方案。
+
+折叠FFT保留全部1024点Hann窗口及全部时间帧，计算频率梳后使用较短GCC周期；它会混叠其他延迟，不是全频PHAT的等价替换。源码验证先于选型，比较内容及复用来源限制见[第12章](../../docs/12_实验设计与评价指标.md)。选型依据是验证集，测试/压力结果不回调参数，不能据PC速度推算含视觉的ARM全流程已经达到6.5秒的5%–10%。
+
+事件新增 `phase_seconds`（srp/beamforming/features/detector）和 `srp_diagnostics`，后者记录实际FFT长度、麦克风对数、完整/粗网格证据、打分方向数、区域剪枝、补搜和全搜回退。`processing_seconds`仍只表示声学处理；抓拍结果的 `capture.processing_seconds` 及 `capture.phase_seconds` 分别记录相机/路由、视觉、关联、标注存图，便于板端分解总延迟。未计算的细网格不填零，也不允许粗证据获得确定车辆归属。
+
 ## 最新时间组合模型部署版（2026-10-28）
 
 使用 `config/band_temporal.json` 加载已训练的 `BandTemporalMLP-30866`（640→48→2、模型标签405187002）。ARM PS用NumPy完成时间特征及推理，PL只需14路PDM→PCM采集。方向门限0.95、抓拍门限0.90、分差0；低分抓拍标为 `capture_only`，不确认鸣笛或具体车辆。窗口固定48128采样、更新24064采样，每个候选波束产生七个40×24原始Log-Mel上下文。模型身份、前端、维度和窗口不符会报错；不要将NPZ交给Tiny CNN Verilog。

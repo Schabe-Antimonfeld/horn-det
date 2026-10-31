@@ -70,6 +70,10 @@ def main(argv=None):
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = validate_model(directory)
     spectral = validate_backend(config, metadata)
+    searcher = None
+    if config['search'].get('algorithm', 'reference') != 'reference':
+        from ps.search import Search
+        searcher = Search(config['audio'], config['search'])
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'classifier': metadata['architecture'], 'detector_backend': config['detector']['backend'],
@@ -77,6 +81,8 @@ def main(argv=None):
                           'capture_threshold': config['detector'].get('capture_threshold', config['detector']['threshold']),
                           'board_runtime': 'requires PYNQ/NumPy; hardware not checked',
                           'srp_backend': config['search'].get('backend', 'numpy'),
+                          'search_algorithm': config['search'].get('algorithm', 'reference'),
+                          'search_implementation': config['search'].get('implementation', 'numpy'),
                           'vision_enabled': config['vision']['enabled']}))
         return 0
     if args.output and args.output_root:
@@ -128,7 +134,7 @@ def main(argv=None):
             vision = Vision(settings)
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
-        pipeline = Pipeline(config, detector, scorer)
+        pipeline = Pipeline(config, detector, scorer, searcher)
         clock_origin, clock_epoch = None, None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:

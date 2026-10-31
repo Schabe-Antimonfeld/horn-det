@@ -45,6 +45,35 @@ def validate_config(config):
         raise ValueError('Search sizes must be positive integers')
     if not 0 < search['separation'] <= 180:
         raise ValueError('Invalid candidate separation')
+    algorithm = search.get('algorithm', 'reference')
+    implementation = search.get('implementation', 'numpy')
+    if algorithm not in ('reference', 'cached', 'hierarchical') or implementation not in ('numpy', 'native'):
+        raise ValueError('Unsupported SRP algorithm or implementation')
+    if search.get('pair_mode', 'all') not in ('all', 'mixed35'):
+        raise ValueError('Unsupported microphone pair mode')
+    fold = search.get('fft_fold', 1)
+    if type(fold) is not int or fold not in (1, 2, 4, 8):
+        raise ValueError('Invalid folded FFT factor')
+    if algorithm == 'reference' and (implementation != 'numpy' or search.get('pair_mode', 'all') != 'all' or fold != 1):
+        raise ValueError('Reference SRP does not apply cached/native/pair/fold options')
+    if algorithm != 'reference' and search.get('backend', 'numpy') != 'numpy':
+        raise ValueError('Optimized search requires PS execution; the existing FPGA protocol has 91 fixed pairs')
+    if math.ceil(audio['diameter'] * audio['sample_rate'] / audio['speed']) + 1 >= 1024 // fold // 2:
+        raise ValueError('Folded GCC cannot cover the physical array delays')
+    if search.get('native_precision', 'double') not in ('single', 'double'):
+        raise ValueError('Invalid native PHAT precision')
+    if 'native_library' in search and (implementation != 'native' or not isinstance(search['native_library'], str)
+                                      or not Path(search['native_library']).is_absolute()):
+        raise ValueError('A native library override must be an absolute path for the native implementation')
+    if algorithm == 'hierarchical':
+        for key, fine, span, maximum in (('coarse_azimuth', 'azimuth_step', 360, 60),
+                                         ('coarse_depression', 'depression_step', 90, 45)):
+            step = search.get(key, 6 if key == 'coarse_azimuth' else 15)
+            if isinstance(step, bool) or not isinstance(step, (int, float)) or not math.isfinite(step) or not 0 < step <= maximum or abs(span / step - round(span / step)) > 1e-9 or step < search[fine] or abs(step / search[fine] - round(step / search[fine])) > 1e-9:
+                raise ValueError('Coarse SRP steps must cover the grid and be multiples of fine steps')
+        regions = search.get('regions', 6)
+        if type(regions) is not int or not search['candidates'] <= regions <= 64 or type(search.get('bounds', True)) is not bool:
+            raise ValueError('Invalid region count or regional bound switch')
     detector = config['detector']
     if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')

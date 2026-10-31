@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -149,3 +150,55 @@ def test_temporal_package_keeps_firmware_paths_consistent(tmp_path):
     assert overlay.read_bytes() == bitstream.read_bytes()
     assert overlay.with_suffix('.hwh').read_bytes() == handoff.read_bytes()
     assert manifest['firmware_included'] and not manifest['board_validated']
+
+
+def test_fast_bundle_requires_target_build_then_replays_and_benchmarks(tmp_path):
+    import numpy as np
+    import wave
+    model = ROOT.parents[1] / 'prototype/outputs/band_improvements_v1/model-combined'
+    if not model.is_dir():
+        pytest.skip('Optional local temporal weights absent')
+    spec = importlib.util.spec_from_file_location('fast_search_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundle = tmp_path / 'fast'
+    manifest = module.package(model, bundle, configuration=ROOT / 'config/band_fast.json')
+    assert manifest['native_build_required'] and not manifest['native_library_included']
+    exact = json.loads((bundle / 'config/native_exact.json').read_text())
+    assert exact['search']['fft_fold'] == 1 and exact['search']['native_precision'] == 'double'
+    assert exact['detector']['model_tag'] == 405187002 and exact['detector']['threshold'] == 0.95
+    assert 'ps/search_kernel.c' in manifest['files'] and 'scripts/build_search.py' in manifest['files']
+    assert not list((bundle / 'ps').glob('*.dll')) and not list((bundle / 'ps').glob('*.so'))
+    checked = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
+                             capture_output=True, text=True, timeout=30)
+    assert checked.returncode != 0 and 'build_search.py' in checked.stderr
+    if not shutil.which('gcc'):
+        pytest.skip('Optional compiler absent; portable native build boundary already checked')
+    built = subprocess.run([sys.executable, '-B', str(bundle / 'scripts/build_search.py')], cwd=tmp_path,
+                           check=True, capture_output=True, text=True, timeout=60)
+    build_result = json.loads(built.stdout)
+    assert build_result['reference_implementation'] == 'numpy' and build_result['double_check_precision'] == 'double'
+    checked = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
+                             check=True, capture_output=True, text=True, timeout=30)
+    assert json.loads(checked.stdout)['search_implementation'] == 'native'
+    samples = np.arange(48128)[:, None] / 48000 + 0.12 * np.cos(np.arange(14)[None] * 2 * np.pi / 14) / 343
+    audio = (5000 * np.sin(2 * np.pi * 700 * samples)).astype('<i2')
+    source = tmp_path / 'array14.wav'
+    with wave.open(str(source), 'wb') as stream:
+        stream.setnchannels(14)
+        stream.setsampwidth(2)
+        stream.setframerate(48000)
+        stream.writeframes(audio.tobytes())
+    subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--replay', str(source), '--output', str(tmp_path / 'run')],
+                   cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
+    event = json.loads((tmp_path / 'run/events.jsonl').read_text())
+    assert event['scores'] and event['srp_diagnostics']['pair_count'] == 91
+    assert event['srp_diagnostics']['fft_length'] == 256 and event['srp_diagnostics']['native_precision'] == 'single'
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_search.py'), '--input', str(source),
+                    '--output', str(tmp_path / 'benchmark.json'), '--windows', '1', '--repeats', '1'],
+                   cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
+    measured = json.loads((tmp_path / 'benchmark.json').read_text())
+    assert measured['windows'] == 1 and measured['relative_time']['srp'] > 0
+    assert measured['search_configuration']['fft_fold'] == 4 and measured['window_samples'] == 48128
+    assert measured['phase_seconds']['optimized']['total']['median'] > 0
+    module.verify(bundle)
