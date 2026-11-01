@@ -41,16 +41,22 @@ class Events:
 
 
 class Pipeline:
-    def __init__(self, config, detector, scorer=None, searcher=None, beamformer=None):
+    def __init__(self, config, detector, scorer=None, searcher=None, beamformer=None, processing=None):
         self.config, self.detector = config, detector
         if config['search'].get('backend', 'numpy') == 'fpga' and scorer is None:
             raise ValueError('FPGA SRP requires an initialized DMA scorer')
         self.scorer = scorer
+        self.processing = processing
+        if config.get('streaming', {}).get('enabled') and self.processing is None:
+            from ps.streaming import Processing
+            self.processing = Processing(config, getattr(detector, 'frontend', 'logmel'))
         self.searcher = None
-        if config['search'].get('algorithm', 'reference') != 'reference':
+        if self.processing is not None:
+            self.searcher = self.processing.search
+        elif config['search'].get('algorithm', 'reference') != 'reference':
             from ps.search import Search
             self.searcher = searcher if searcher is not None else Search(config['audio'], config['search'])
-        self.beamformer = beamformer
+        self.beamformer = self.processing.beams if self.processing is not None else beamformer
         if self.beamformer is None and config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
             from ps.beamforming import Beamformer
             self.beamformer = Beamformer(config['audio'], config['beamforming'])
@@ -62,12 +68,14 @@ class Pipeline:
 
     def analyze(self, snapshot):
         started = time.perf_counter()
+        context = self.processing.continuity.prepare(snapshot) if self.processing is not None else None
         if self.searcher is None:
             grid = spatial_map(snapshot['audio'], self.config['audio'], self.config['search'], self.scorer)
             bearings = candidates(grid, self.config['search']['candidates'], self.config['search']['separation'])
             diagnostic = dict(algorithm='reference', pair_count=91, evidence_grid='complete_fine')
         else:
-            grid, bearings, diagnostic = self.searcher.run(snapshot['audio'])
+            grid, bearings, diagnostic = (self.searcher.run_snapshot(snapshot, context) if context is not None
+                                         else self.searcher.run(snapshot['audio']))
             diagnostic['algorithm'] = self.searcher.algorithm
         spatial_done = time.perf_counter()
         phases = dict(srp=spatial_done - started, beamforming=0.0, features=0.0, detector=0.0)
@@ -75,9 +83,10 @@ class Pipeline:
         beams = None
         if self.beamformer is not None:
             step = time.perf_counter()
-            beams, beam_metric = self.beamformer.run(snapshot['audio'], bearings)
+            beams, beam_metric = (self.beamformer.run_snapshot(snapshot, bearings, context) if context is not None
+                                  else self.beamformer.run(snapshot['audio'], bearings))
             phases['beamforming'] = time.perf_counter() - step
-        scores, clipped, frontend_clipped = [], [], []
+        scores, clipped, frontend_clipped, feature_metrics = [], [], [], []
         for index, bearing in enumerate(bearings):
             if beams is None:
                 step = time.perf_counter()
@@ -87,7 +96,11 @@ class Pipeline:
                 waveform, latency = beams[index]
             try:
                 step = time.perf_counter()
-                contexts = features(waveform, getattr(self.detector, 'frontend', 'logmel'))
+                if context is not None:
+                    contexts, feature_metric = self.processing.frontend.run(waveform, bearing, context, beam_metric['support_samples'])
+                    feature_metrics.append(feature_metric)
+                else:
+                    contexts = features(waveform, getattr(self.detector, 'frontend', 'logmel'))
                 phases['features'] += time.perf_counter() - step
                 step = time.perf_counter()
                 result = self.detector.score(contexts)
@@ -135,6 +148,8 @@ class Pipeline:
                       'srp_backend': 'fpga' if self.scorer is not None else 'numpy',
                       'classifier': getattr(self.detector, 'metadata', {}).get('architecture', 'test-detector')})
         evidence = AcousticEvidence(selected, grid) if capture_candidate else None
+        if context is not None:
+            event['stream_diagnostics'] = dict(context, features=feature_metrics)
         return event, evidence
 
     def capture(self, event, evidence, cache, vision, output, representative_time):

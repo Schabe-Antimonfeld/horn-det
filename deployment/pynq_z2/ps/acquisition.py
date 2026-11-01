@@ -130,6 +130,7 @@ class CapturePump:
         self.stop = threading.Event()
         self.error = None
         self.skipped, self.gaps = 0, 0
+        self.conditioning_seconds, self.conditioned_packets = 0.0, 0
         self.thread = threading.Thread(target=self.run, name='audio-capture', daemon=True)
 
     def run(self):
@@ -138,11 +139,17 @@ class CapturePump:
                 packet = self.device.receive()
                 self.gaps += int(packet['gap'])
                 if self.conditioning is not None:
+                    began = time.perf_counter()
                     if packet['gap']:
                         self.conditioning.reset()
                     packet['audio'] = self.conditioning.feed(packet['audio'])
+                    self.conditioning_seconds += time.perf_counter() - began
+                    self.conditioned_packets += 1
                 snapshot = self.history.feed(packet)
                 if snapshot is not None:
+                    snapshot['conditioning'] = dict(seconds=self.conditioning_seconds, packets=self.conditioned_packets,
+                                                    scope='elapsed conditioning time in acquisition worker since previous emitted snapshot; overlaps analysis')
+                    self.conditioning_seconds, self.conditioned_packets = 0.0, 0
                     try:
                         self.pending.put_nowait(snapshot)
                     except queue.Full:

@@ -240,3 +240,53 @@ def test_native_beam_package_rejects_host_override_and_missing_library_before_ou
                             cwd=tmp_path, capture_output=True, text=True, timeout=30)
     assert result.returncode != 0 and 'build_beam.py' in result.stderr
     assert not output.exists()
+
+
+def test_stream_bundle_builds_both_libraries_and_replays_contiguous_pcm(tmp_path):
+    import numpy as np
+    import wave
+    model = ROOT.parents[1] / 'prototype/outputs/band_improvements_v1/model-combined'
+    if not model.is_dir() or not shutil.which('gcc'):
+        pytest.skip('Optional local model or compiler absent')
+    spec = importlib.util.spec_from_file_location('stream_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundle = tmp_path / 'streaming'
+    manifest = module.package(model, bundle, configuration=ROOT / 'config/band_stream.json')
+    assert manifest['native_build_components'] == ['search', 'streaming']
+    assert manifest['native_build_required'] and not manifest['native_library_included']
+    assert not list(bundle.rglob('*.dll')) and not list(bundle.rglob('*.so'))
+    for name in ('ps/streaming.py', 'ps/stream_kernel.c', 'scripts/build_stream.py', 'scripts/benchmark_stream.py'):
+        assert name in manifest['files']
+    checked = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
+                             capture_output=True, text=True, timeout=30)
+    assert checked.returncode != 0 and 'build_stream.py' in checked.stderr
+    for name in ('build_search.py', 'build_stream.py'):
+        subprocess.run([sys.executable, '-B', str(bundle / 'scripts' / name)], cwd=tmp_path,
+                       capture_output=True, text=True, check=True, timeout=60)
+    checked = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
+                             capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(checked.stdout)['streaming_enabled']
+    samples = np.arange(72192)[:, None] / 48000 + 0.12 * np.cos(np.arange(14)[None] * 2 * np.pi / 14) / 343
+    audio = (5000 * np.sin(2 * np.pi * 700 * samples)).astype('<i2')
+    source = tmp_path / 'array14.wav'
+    with wave.open(str(source), 'wb') as stream:
+        stream.setnchannels(14)
+        stream.setsampwidth(2)
+        stream.setframerate(48000)
+        stream.writeframes(audio.tobytes())
+    subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--replay', str(source), '--output', str(tmp_path / 'replay')],
+                   cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
+    events = [json.loads(line) for line in (tmp_path / 'replay/events.jsonl').read_text().splitlines()]
+    assert len(events) == 2 and events[0]['srp_diagnostics']['fft_frames_computed'] == 93
+    assert events[1]['srp_diagnostics']['fft_frames_computed'] == 47
+    assert events[1]['beamforming_diagnostics']['fft_blocks_computed'] == 33
+    assert events[1]['stream_diagnostics']['reusable']
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_stream.py'), '--input', str(source),
+                    '--output', str(tmp_path / 'stream-benchmark.json'), '--windows', '2', '--repeats', '1'],
+                   cwd=tmp_path, check=True, capture_output=True, text=True, timeout=60)
+    measured = json.loads((tmp_path / 'stream-benchmark.json').read_text())
+    assert measured['maximum_score_error'] < 2e-10 and measured['target_seconds'] == 0.5
+    assert measured['fallback_reset_reason'] == 'epoch_changed'
+    assert set(measured['beam_scenarios']) == {'stable', 'changing'}
+    module.verify(bundle)

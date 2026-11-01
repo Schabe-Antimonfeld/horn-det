@@ -10,6 +10,24 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## 连续窗口快速版（2026-11-01）
+
+新增`config/band_stream.json`，在原快速SRP与FFT波束上复用连续窗口的重叠数据，目标为板端每窗声学处理≤500 ms。仍为14路、48128采样、24064更新、原模型/门限、91对完整网格；没有新增PL核或减少候选。旧`band_fast.json`作为上一版对照保持不变。
+
+SRP每窗93帧，稳态只算47个新帧，按原12帧分组累加顺序缓存下一窗口需要的互谱和；1024点波束采用整除更新间隔的752采样步长，首窗64块、稳态重算33块。输入频谱复用不要求候选方向稳定；方向相同时再复用有效输出及Mel帧，窗首补零和分数延迟边界重算。epoch、计数、窗口或全部重叠PCM不一致时全量重算，避免跨缺包/跳窗错误复用。C Conditioning保持状态和校准语义，采集线程时间单列。
+
+在目标机新包目录依次执行`python scripts/build_search.py`、`python scripts/build_stream.py`、`python run.py --check`，再用`python scripts/benchmark_stream.py --input synchronized-array14.wav --output NEW_BENCHMARK.json`对比。新库`ps/libstream.so`的ABI=1，原SRP库ABI=2；包内没有开发机DLL/ARM预编译库，不新增依赖或自动安装工具。默认BLAS/OMP单线程，保留手动环境设置。
+
+完整376项回归、1008个构造场景和84个连续混合窗口对拍通过，主/压力联合F1及抓拍计数不变。本机原回放稳态16.09→11.35 ms，阶跃方向压力流17.63→13.68 ms，后者没有输出波形缓存命中。重置路径可能更慢，不能用电脑比例推算上板736→500 ms；当前没有新ARM测速，500 ms仍待验收。配置、计时口径、方向变化结果及PS/PL待办见[500 ms验收说明](BOARD_PERFORMANCE.md)。
+
+新包路径为`outputs/stream_fast_v2_20261101/pynq_z2_stream_fast.zip`；从源码仓库打包使用：
+
+```powershell
+.\prototype\.venv\Scripts\python.exe -B deployment/pynq_z2/scripts/package.py --model prototype/outputs/band_improvements_v1/model-combined --config deployment/pynq_z2/config/band_stream.json --output deployment/pynq_z2/outputs/stream_fast_v2_20261101/pynq_z2_stream_fast
+```
+
+迁移实际设备时保留已验证的标定、相机、视觉模型及overlay配置。回退可关闭`streaming.enabled`并改`streaming.conditioning=numpy`，或使用原`band_fast.json`；其余搜索/波束/门限不同时改动。原波束与SRP快速包保留，不能用新增复用掩盖采集gap、分析跳窗或模型召回不足。
+
 ## 候选波束快速版（2026-10-31）
 
 `config/band_fast.json`在既有快速SRP后接入PS上的批量分块FFT波束形成，`beamforming.implementation=fft`、`fft_size=1024`、`cache_size=64`。14路输入的分块频谱只计算一次，供所有候选方向使用；每个波束在频域合并14路后只做一次逆FFT，方向滤波系数按精确角度缓存，最多64项。候选数量、65抽头Hann窗sinc、分数延迟符号、公共延迟、输出长度、窗尾截断、一次DC处理及模型前端保持不变，不缩短滤波器、不减少麦克风或候选。

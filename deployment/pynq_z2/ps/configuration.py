@@ -76,6 +76,20 @@ def validate_config(config):
         regions = search.get('regions', 6)
         if type(regions) is not int or not search['candidates'] <= regions <= 64 or type(search.get('bounds', True)) is not bool:
             raise ValueError('Invalid region count or regional bound switch')
+    streaming = config.get('streaming', {})
+    if not isinstance(streaming, dict) or set(streaming) - {'enabled', 'conditioning', 'native_library'}:
+        raise ValueError('Unsupported streaming settings')
+    if type(streaming.get('enabled', False)) is not bool or streaming.get('conditioning', 'numpy') not in ('numpy', 'native'):
+        raise ValueError('Invalid streaming mode or conditioning')
+    if 'native_library' in streaming and (not isinstance(streaming['native_library'], str)
+                                         or not Path(streaming['native_library']).is_absolute()):
+        raise ValueError('Streaming library override must be absolute')
+    if streaming.get('enabled') and (algorithm not in ('cached', 'hierarchical') or search.get('backend', 'numpy') != 'numpy'
+            or config.get('beamforming', {}).get('implementation') != 'fft'
+            or audio['window_samples'] != 2 * audio['update_samples']):
+        raise ValueError('Streaming requires PS search, FFT beams and fifty-percent aligned overlap')
+    if not streaming.get('enabled', False) and (streaming.get('conditioning', 'numpy') != 'numpy' or 'native_library' in streaming):
+        raise ValueError('Native streaming options require enabled streaming')
     detector = config['detector']
     if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')

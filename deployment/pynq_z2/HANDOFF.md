@@ -4,9 +4,11 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-2026-10-31最新可选快速包为 `deployment/pynq_z2/outputs/beam_fast_v1_20261031/pynq_z2_beam_fast.zip`；此前仅SRP加速的 `outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`保留。仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
+2026-11-01最新可选包为`deployment/pynq_z2/outputs/stream_fast_v2_20261101/pynq_z2_stream_fast.zip`，增加重叠窗口复用和状态化C Conditioning，目标为每窗声学≤500 ms；详见[板端性能验收](BOARD_PERFORMANCE.md)。当前376项测试、1008场景和84连续窗口对拍通过，电脑稳态总耗时减少约22%–30%，没有新的ARM实测，不能宣称500 ms达标。新包需在板端分别执行`python scripts/build_search.py`和`python scripts/build_stream.py`，`native_build_components=["search","streaming"]`；仍不含bit/hwh或视觉权重。
 
-快速包选择PS C SRP内核、91对、4倍折叠FFT、single PHAT累加、完整网格；本轮另加入1024点overlap-save候选波束，复用14路输入频谱，完整保留65抽头和参考窗首截断，模型与相机语义不变。包不含开发机DLL或ARM预编译库，先在板端执行 `python scripts/build_search.py`，再 `python run.py --check`；需要镜像中已有GCC，缺少时由合作者准备工具链，不自动联网安装。SRP库构建会做双精度及单精度数值自检，记录机器类型、源文件/库SHA256；ABI必须为2。Linux产物为 `ps/libsrp.so`，不可复制Windows DLL替代。FFT波束不需要额外库；`native_build_components=["search"]`。2026-10-28纯NumPy包仍保留在 `outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip` 供回退与对照。
+2026-10-31波束快速包 `outputs/beam_fast_v1_20261031/pynq_z2_beam_fast.zip`及此前仅SRP加速的 `outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`保留。各包仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
+
+此前波束快速包选择PS C SRP内核、91对、4倍折叠FFT、single PHAT累加、完整网格；其中1024点overlap-save候选波束复用14路输入频谱，完整保留65抽头和参考窗首截断。该旧包先执行`python scripts/build_search.py`再`python run.py --check`，只需SRP库（ABI=2、Linux名`ps/libsrp.so`），`native_build_components=["search"]`。本轮流式包在此基础上另外要求ABI=1的`ps/libstream.so`，用于互谱分组复用和C Conditioning，不能漏编译。工具不自动安装GCC，不复制Windows DLL到ARM。2026-10-28纯NumPy包仍保留在 `outputs/temporal_deploy_v1_20261028/pynq_z2_temporal_release.zip` 供回退与对照。
 
 这些包均含PS Python、模型、配置、采集Verilog、约束与构建入口，不含bit/hwh或视觉权重。可复用合作者已经验收的同接口采集overlay；本机缺少目标Vivado器件/板卡支持的状态不构成合作者现有固件的验证。快速C库和FFT波束不改变PL接口，默认仍使用 `search.backend=numpy` 表示PS执行。
 

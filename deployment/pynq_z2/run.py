@@ -8,6 +8,9 @@ from pathlib import Path
 import time
 import wave
 
+for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
+    os.environ.setdefault(variable, '1')
+
 import numpy as np
 
 from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
@@ -70,12 +73,16 @@ def main(argv=None):
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = validate_model(directory)
     spectral = validate_backend(config, metadata)
+    processing = None
+    if config.get('streaming', {}).get('enabled'):
+        from ps.streaming import Processing
+        processing = Processing(config, metadata.get('provenance', {}).get('frontend', 'logmel'))
     searcher = None
-    if config['search'].get('algorithm', 'reference') != 'reference':
+    if processing is None and config['search'].get('algorithm', 'reference') != 'reference':
         from ps.search import Search
         searcher = Search(config['audio'], config['search'])
     beamformer = None
-    if config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
+    if processing is None and config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
         from ps.beamforming import Beamformer
         beamformer = Beamformer(config['audio'], config['beamforming'])
     if args.check:
@@ -88,6 +95,10 @@ def main(argv=None):
                           'search_algorithm': config['search'].get('algorithm', 'reference'),
                           'search_implementation': config['search'].get('implementation', 'numpy'),
                           'beamforming_implementation': config.get('beamforming', {}).get('implementation', 'reference'),
+                          'streaming_enabled': processing is not None,
+                          'conditioning_implementation': config.get('streaming', {}).get('conditioning', 'numpy'),
+                          'thread_environment': {name: os.environ.get(name) for name in
+                                                 ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS')},
                           'vision_enabled': config['vision']['enabled']}))
         return 0
     if args.output and args.output_root:
@@ -104,7 +115,11 @@ def main(argv=None):
     pump = device = camera_cache = capture = scorer = None
     processed, status = 0, 'starting'
     try:
-        conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
+        if processing is not None:
+            from ps.streaming import conditioning as create_conditioning
+            conditioning = create_conditioning(config, processing.runtime)
+        else:
+            conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
         if args.replay:
             detector = load_spectral(directory) if spectral else Detector(directory)
             snapshots = replay(args.replay, config['audio'], conditioning)
@@ -139,7 +154,7 @@ def main(argv=None):
             vision = Vision(settings)
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
-        pipeline = Pipeline(config, detector, scorer, searcher, beamformer)
+        pipeline = Pipeline(config, detector, scorer, searcher, beamformer, processing)
         clock_origin, clock_epoch = None, None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:
@@ -149,6 +164,8 @@ def main(argv=None):
                     clock_epoch = snapshot['epoch']
                 representative = clock_origin + ((snapshot['first'] + snapshot['end']) / 2 - conditioning.latency) / config['audio']['sample_rate']
                 event, evidence = pipeline.analyze(snapshot)
+                if 'conditioning' in snapshot:
+                    event['conditioning'] = snapshot['conditioning']
                 event['clock_kind'] = 'replay_sample_clock' if args.replay else 'unverified_host_clock'
                 if vision is not None:
                     event['capture'] = pipeline.capture(event, evidence, camera_cache, vision, output, representative)
