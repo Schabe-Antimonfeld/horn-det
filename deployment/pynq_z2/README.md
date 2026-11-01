@@ -10,6 +10,26 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## Conditioning 专项快速版（2026-11-01）
+
+新增`config/band_conditioned.json`，继承连续窗口快速版并启用`conditioning.implementation=buffered`、`fir=native`。支持直接读取PCM16，初始化时绑定C状态及校准参数，复用逐包输出和历史工作区；有时延校准时，C合并65抽头FIR和整数延迟。无时延校准则跳过FIR，保留原归一化、去直流、增益和延迟语义。参数在实例内固定，修改配置后重新创建实例。
+
+`feed()`仍返回独立存储；新增`feed_into(audio, output)`仅用于显式调用者缓冲。采集/回放立即把结果拷入历史窗口后才复用输出，不把同一数组当作多个历史块。`fir=numpy`保留缓冲化C去直流＋NumPy FIR对照，原`band_stream.json`保留上一版实现；省略新增`conditioning`节即可回退。
+
+电脑同输入配对：512采样/14路默认配置约24.1→13.5 μs/包，分数延迟校准197.7→68.3 μs/包；是与上一版C Conditioning比较。412项回归、原有/新校准路径、正负回放的模型/事件一致性验证通过。正例取自已知验证场景，只用于实现核对，不构成新道路精度证据。平均更快不保证每次延迟更低，原始记录含P90/最大值；本轮没有新ARM测速或500 ms达标结论。
+
+新包为`outputs/conditioning_fast_v1_20261101/pynq_z2_conditioned.zip`，在目标机依次执行：
+
+```text
+python scripts/build_search.py
+python scripts/build_stream.py
+python scripts/build_conditioning.py
+python run.py --check
+python scripts/benchmark_conditioning.py --input synchronized-array14.wav --config config/default.json --model model --output NEW_CONDITIONING.json
+```
+
+新库`ps/libconditioning.so`的ABI=1，构建时核对C/Python状态布局及数值；三个库均须在目标机编译，不能复制Windows DLL。还需要已验收的采集bit/hwh。打包使用`package.py --model MODEL --config config/band_conditioned.json --output NEW_BUNDLE`；不新增依赖、自动安装或修改安全软件。Conditioning在采集线程执行，其耗时不与并行声学耗时直接相加，板端验收见[性能说明](BOARD_PERFORMANCE.md)。
+
 ## 连续窗口快速版（2026-11-01）
 
 新增`config/band_stream.json`，在原快速SRP与FFT波束上复用连续窗口的重叠数据，目标为板端每窗声学处理≤500 ms。仍为14路、48128采样、24064更新、原模型/门限、91对完整网格；没有新增PL核或减少候选。旧`band_fast.json`作为上一版对照保持不变。

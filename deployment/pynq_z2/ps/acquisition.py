@@ -131,6 +131,8 @@ class CapturePump:
         self.error = None
         self.skipped, self.gaps = 0, 0
         self.conditioning_seconds, self.conditioned_packets = 0.0, 0
+        self.scratch = (np.empty((settings['packet_samples'], settings['channels']), dtype=np.float64)
+                        if callable(getattr(conditioning, 'feed_into', None)) else None)
         self.thread = threading.Thread(target=self.run, name='audio-capture', daemon=True)
 
     def run(self):
@@ -142,12 +144,15 @@ class CapturePump:
                     began = time.perf_counter()
                     if packet['gap']:
                         self.conditioning.reset()
-                    packet['audio'] = self.conditioning.feed(packet['audio'])
+                    packet['audio'] = (self.conditioning.feed_into(packet['audio'], self.scratch[:len(packet['audio'])])
+                                       if self.scratch is not None else self.conditioning.feed(packet['audio']))
                     self.conditioning_seconds += time.perf_counter() - began
                     self.conditioned_packets += 1
                 snapshot = self.history.feed(packet)
                 if snapshot is not None:
                     snapshot['conditioning'] = dict(seconds=self.conditioning_seconds, packets=self.conditioned_packets,
+                                                    implementation=getattr(self.conditioning, 'implementation', type(self.conditioning).__name__),
+                                                    fir=getattr(self.conditioning, 'fir', 'numpy') if getattr(self.conditioning, 'latency', 0) else 'disabled',
                                                     scope='elapsed conditioning time in acquisition worker since previous emitted snapshot; overlaps analysis')
                     self.conditioning_seconds, self.conditioned_packets = 0.0, 0
                     try:

@@ -290,3 +290,53 @@ def test_stream_bundle_builds_both_libraries_and_replays_contiguous_pcm(tmp_path
     assert measured['fallback_reset_reason'] == 'epoch_changed'
     assert set(measured['beam_scenarios']) == {'stable', 'changing'}
     module.verify(bundle)
+
+
+def test_conditioned_bundle_builds_and_replays_without_source_checkout(tmp_path):
+    import numpy as np
+    import wave
+    model = ROOT.parents[1] / 'prototype/outputs/band_improvements_v1/model-combined'
+    if not model.is_dir() or not shutil.which('gcc'):
+        pytest.skip('Optional model or compiler absent')
+    spec = importlib.util.spec_from_file_location('conditioned_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundle = tmp_path / 'conditioned'
+    manifest = module.package(model, bundle, configuration=ROOT / 'config/band_conditioned.json')
+    assert manifest['native_build_components'] == ['search', 'streaming', 'conditioning']
+    assert not manifest['native_library_included'] and not list(bundle.rglob('*.dll')) and not list(bundle.rglob('*.so'))
+    for name in ('build_search.py', 'build_stream.py'):
+        subprocess.run([sys.executable, '-B', str(bundle / 'scripts' / name)], cwd=tmp_path,
+                       capture_output=True, text=True, check=True, timeout=60)
+    result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--output', str(tmp_path / 'not-created')],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode != 0 and 'build_conditioning.py' in result.stderr
+    assert not (tmp_path / 'not-created').exists()
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/build_conditioning.py')], cwd=tmp_path,
+                   capture_output=True, text=True, check=True, timeout=60)
+    result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check'], cwd=tmp_path,
+                            capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(result.stdout)['conditioning_implementation'] == 'buffered'
+    assert json.loads(result.stdout)['conditioning_fir'] == 'native'
+    source = tmp_path / 'array.wav'
+    samples = np.arange(72192)[:, None] / 48000 + np.cos(np.arange(14)[None] * 2 * np.pi / 14) * 0.12 / 343
+    data = (5000 * np.sin(2 * np.pi * 700 * samples)).astype('<i2')
+    with wave.open(str(source), 'wb') as stream:
+        stream.setnchannels(14)
+        stream.setsampwidth(2)
+        stream.setframerate(48000)
+        stream.writeframes(data.tobytes())
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_conditioning.py'), '--input', str(source),
+                    '--output', str(tmp_path / 'benchmark.json'), '--config', str(bundle / 'config/default.json'),
+                    '--model', str(bundle / 'model'), '--repeats', '1'], cwd=tmp_path,
+                   capture_output=True, text=True, check=True, timeout=120)
+    report = json.loads((tmp_path / 'benchmark.json').read_text())
+    assert report['result'] == 'passed' and report['model_comparison']['fractional']['windows'] == 2
+    config = json.loads((bundle / 'config/default.json').read_text())
+    config['conditioning']['native_library'] = str(tmp_path / 'host.so')
+    path = tmp_path / 'host.json'
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='host-specific'):
+        module.package(model, tmp_path / 'invalid', configuration=path)
+    assert not (tmp_path / 'invalid').exists()
+    module.verify(bundle)

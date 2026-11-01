@@ -4,7 +4,11 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-2026-11-01最新可选包为`deployment/pynq_z2/outputs/stream_fast_v2_20261101/pynq_z2_stream_fast.zip`，增加重叠窗口复用和状态化C Conditioning，目标为每窗声学≤500 ms；详见[板端性能验收](BOARD_PERFORMANCE.md)。当前376项测试、1008场景和84连续窗口对拍通过，电脑稳态总耗时减少约22%–30%，没有新的ARM实测，不能宣称500 ms达标。新包需在板端分别执行`python scripts/build_search.py`和`python scripts/build_stream.py`，`native_build_components=["search","streaming"]`；仍不含bit/hwh或视觉权重。
+2026-11-01最新可选包为`deployment/pynq_z2/outputs/conditioning_fast_v1_20261101/pynq_z2_conditioned.zip`，新增PCM16直接处理、调用方输出缓冲及C状态化校准FIR。先执行`python scripts/build_search.py`、`python scripts/build_stream.py`、`python scripts/build_conditioning.py`再`python run.py --check`；`native_build_components=["search","streaming","conditioning"]`。需要匹配的既有采集bit/hwh，包不含固件或视觉权重。412项回归及正负模型/事件回放对拍通过；本机默认约24.1→13.5 μs/包、分数延迟197.7→68.3 μs/包，ARM速度仍待实测。
+
+在真实板端使用`benchmark_conditioning.py --input synchronized-array14.wav --config config/default.json --model model --output NEW_REPORT.json`，保留实际gains/delays、输入、模型、库/源码哈希、中位/P90/最大值；分别检查默认、增益、分数延迟、跨包长延迟及实际配置。参数修改须重建Conditioner，不直接修改其内部状态。采集输出缓冲只在写入WindowBuffer后复用，`feed()`的独立输出语义不变。若C FIR在实际ARM更慢，改`conditioning.fir=numpy`比较；删除整个新增conditioning节可回到上一版。没有以缩短滤波器或放宽可靠性门限获得提速。
+
+上一轮连续窗口包`outputs/stream_fast_v2_20261101/pynq_z2_stream_fast.zip`保留，目标为每窗声学≤500 ms；详见[板端性能验收](BOARD_PERFORMANCE.md)。其376项测试、1008场景和84连续窗口对拍通过，电脑稳态总耗时减少约22%–30%，没有新的ARM实测，不能宣称500 ms达标。该旧包只需执行`python scripts/build_search.py`和`python scripts/build_stream.py`，`native_build_components=["search","streaming"]`。
 
 2026-10-31波束快速包 `outputs/beam_fast_v1_20261031/pynq_z2_beam_fast.zip`及此前仅SRP加速的 `outputs/srp_fast_v1_20261031/pynq_z2_srp_fast.zip`保留。各包仍使用时间＋原始录音回放组合模型：`prototype/outputs/band_improvements_v1/model-combined/`，架构 `BandTemporalMLP-30866`、标签405187002，`weights.npz` SHA256为 `1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7`。方向门限0.95、抓拍门限0.90、分差0；支持原始Log-Mel七上下文窗口。
 

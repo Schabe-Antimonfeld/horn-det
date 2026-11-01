@@ -90,6 +90,9 @@ def validate_config(config):
         raise ValueError('Streaming requires PS search, FFT beams and fifty-percent aligned overlap')
     if not streaming.get('enabled', False) and (streaming.get('conditioning', 'numpy') != 'numpy' or 'native_library' in streaming):
         raise ValueError('Native streaming options require enabled streaming')
+    if 'conditioning' in config:
+        from ps.conditioning import validate_options as validate_conditioning
+        validate_conditioning(config['conditioning'])
     detector = config['detector']
     if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')

@@ -33,13 +33,15 @@ def replay(path, settings, conditioning):
         if (source.getnchannels(), source.getsampwidth(), source.getframerate()) != (14, 2, 48000):
             raise ValueError('Replay must be synchronized 14-channel PCM16/48k WAV')
         history = WindowBuffer(settings, np.float64)
+        scratch = (np.empty((512, 14), dtype=np.float64) if callable(getattr(conditioning, 'feed_into', None)) else None)
         first = 0
         while True:
             data = source.readframes(512)
             audio = np.frombuffer(data, dtype='<i2').reshape(-1, 14)
             if len(audio) < 512:
                 break
-            snapshot = history.feed({'audio': conditioning.feed(audio), 'first': first, 'gap': False, 'clipped': False})
+            processed = conditioning.feed_into(audio, scratch) if scratch is not None else conditioning.feed(audio)
+            snapshot = history.feed({'audio': processed, 'first': first, 'gap': False, 'clipped': False})
             first += 512
             if snapshot is not None:
                 yield snapshot
@@ -85,6 +87,10 @@ def main(argv=None):
     if processing is None and config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
         from ps.beamforming import Beamformer
         beamformer = Beamformer(config['audio'], config['beamforming'])
+    prepared = None
+    if 'conditioning' in config:
+        from ps.conditioning import create_conditioning
+        prepared = create_conditioning(config, processing.runtime if processing is not None else None)
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'classifier': metadata['architecture'], 'detector_backend': config['detector']['backend'],
@@ -96,7 +102,9 @@ def main(argv=None):
                           'search_implementation': config['search'].get('implementation', 'numpy'),
                           'beamforming_implementation': config.get('beamforming', {}).get('implementation', 'reference'),
                           'streaming_enabled': processing is not None,
-                          'conditioning_implementation': config.get('streaming', {}).get('conditioning', 'numpy'),
+                          'conditioning_implementation': (config['conditioning'].get('implementation', 'buffered')
+                                                           if prepared is not None else config.get('streaming', {}).get('conditioning', 'numpy')),
+                          'conditioning_fir': getattr(prepared, 'fir', 'numpy'),
                           'thread_environment': {name: os.environ.get(name) for name in
                                                  ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS')},
                           'vision_enabled': config['vision']['enabled']}))
@@ -115,7 +123,9 @@ def main(argv=None):
     pump = device = camera_cache = capture = scorer = None
     processed, status = 0, 'starting'
     try:
-        if processing is not None:
+        if prepared is not None:
+            conditioning = prepared
+        elif processing is not None:
             from ps.streaming import conditioning as create_conditioning
             conditioning = create_conditioning(config, processing.runtime)
         else:
