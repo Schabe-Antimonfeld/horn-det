@@ -36,7 +36,7 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
         from ps.configuration import load_config
         config = load_config(configuration)
         validate_backend(config, metadata)
-        if any('native_library' in config.get(section, {}) for section in ('search', 'beamforming', 'streaming', 'conditioning')):
+        if any('native_library' in config.get(section, {}) for section in ('search', 'beamforming', 'streaming', 'conditioning', 'refinement')):
             raise ValueError('Portable packages cannot retain a host-specific native library override; build the library on the target')
         config['detector']['model_directory'] = 'model'
     elif metadata['architecture'] in ('BandMLP-7826', 'BandTemporalMLP-30866') or metadata.get('provenance', {}).get('plan_sha256'):
@@ -96,7 +96,8 @@ def package(model, output, bitstream=None, handoff=None, configuration=None):
                                             ('beamforming', config.get('beamforming', {}))]
                                             if settings.get('implementation') == 'native']
                                             + (['streaming'] if config.get('streaming', {}).get('enabled') else [])
-                                            + (['conditioning'] if 'conditioning' in config else []) if config else []),
+                                            + (['conditioning'] if 'conditioning' in config else [])
+                                            + (['refinement'] if 'refinement' in config and config['refinement'].get('fused_input', True) else []) if config else []),
                 'native_library_included': False,
                 'vision_weights_included': False, 'license_scope': 'research/noncommercial; model provenance in model/manifest.json'}
     (output / 'bundle.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')

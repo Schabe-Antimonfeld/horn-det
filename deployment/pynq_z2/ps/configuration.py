@@ -90,6 +90,9 @@ def validate_config(config):
         raise ValueError('Streaming requires PS search, FFT beams and fifty-percent aligned overlap')
     if not streaming.get('enabled', False) and (streaming.get('conditioning', 'numpy') != 'numpy' or 'native_library' in streaming):
         raise ValueError('Native streaming options require enabled streaming')
+    if 'refinement' in config:
+        from ps.refinement import validate_options as validate_refinement
+        validate_refinement(config['refinement'], streaming)
     if 'conditioning' in config:
         from ps.conditioning import validate_options as validate_conditioning
         validate_conditioning(config['conditioning'])

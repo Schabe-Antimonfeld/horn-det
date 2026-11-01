@@ -340,3 +340,80 @@ def test_conditioned_bundle_builds_and_replays_without_source_checkout(tmp_path)
         module.package(model, tmp_path / 'invalid', configuration=path)
     assert not (tmp_path / 'invalid').exists()
     module.verify(bundle)
+
+
+def test_refined_bundle_checks_native_boundary_and_replays_four_backends(tmp_path):
+    import hashlib
+    import numpy as np
+    import wave
+    model = ROOT.parents[1] / 'prototype/outputs/band_improvements_v1/model-combined'
+    if not model.is_dir() or not shutil.which('gcc'):
+        pytest.skip('Optional model or compiler absent')
+    spec = importlib.util.spec_from_file_location('refined_package', ROOT / 'scripts/package.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    bundle = tmp_path / 'refined'
+    manifest = module.package(model, bundle, configuration=ROOT / 'config/band_refined.json')
+    assert manifest['native_build_components'] == ['search', 'streaming', 'conditioning', 'refinement']
+    assert not manifest['native_library_included'] and not list(bundle.rglob('*.dll')) and not list(bundle.rglob('*.so'))
+    for name in ('ps/refinement.py', 'ps/refinement_kernel.c', 'scripts/build_refinement.py', 'scripts/benchmark_refinement.py'):
+        assert name in manifest['files']
+    for name in ('search', 'stream', 'conditioning'):
+        subprocess.run([sys.executable, '-B', str(bundle / ('scripts/build_' + name + '.py'))], cwd=tmp_path,
+                       capture_output=True, text=True, check=True, timeout=60)
+    result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--output', str(tmp_path / 'not-created')],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode != 0 and 'build_refinement.py' in result.stderr and not (tmp_path / 'not-created').exists()
+    existing = os.environ.get('HORN_REFINEMENT_LIBRARY')
+    if existing:
+        report = json.loads(Path(existing + '.json').read_text())
+        assert report['source_sha256'] == hashlib.sha256((bundle / 'ps/refinement_kernel.c').read_bytes()).hexdigest()
+        assert report['library_sha256'] == hashlib.sha256(Path(existing).read_bytes()).hexdigest()
+        arguments = ['--check', existing]
+    else:
+        arguments = []
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/build_refinement.py')] + arguments,
+                   cwd=tmp_path, capture_output=True, text=True, check=True, timeout=60)
+    config = json.loads((bundle / 'config/default.json').read_text())
+    if existing:
+        config['refinement']['native_library'] = existing
+    runtime_config = tmp_path / 'runtime.json'
+    runtime_config.write_text(json.dumps(config))
+    result = subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--check', '--config', str(runtime_config)], cwd=tmp_path,
+                            capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(result.stdout)['refinement']['independent_beams'] is True
+    source = tmp_path / 'array.wav'
+    samples = np.arange(72192)[:, None] / 48000 + np.cos(np.arange(14)[None] * 2 * np.pi / 14) * 0.12 / 343
+    with wave.open(str(source), 'wb') as stream:
+        stream.setparams((14, 2, 48000, 0, 'NONE', 'not compressed'))
+        stream.writeframes((5000 * np.sin(2 * np.pi * 700 * samples)).astype('<i2').tobytes())
+    subprocess.run([sys.executable, '-B', str(bundle / 'scripts/benchmark_refinement.py'), '--input', str(source),
+                    '--output', str(tmp_path / 'benchmark.json'), '--config', str(runtime_config), '--repeats', '1'], cwd=tmp_path,
+                   capture_output=True, text=True, check=True, timeout=120)
+    value = json.loads((tmp_path / 'benchmark.json').read_text())
+    assert value['correlations_bitwise_equal'] and value['complete_grid_bitwise_equal']
+    assert value['maximum_score_error'] < 2e-10 and len(value['phase_seconds']) == 4
+    assert value['beam_scenarios']['partial_change']['rows']['refined'][1]['diagnostic']['output_reused_beams'] == 1
+    exact = json.loads((bundle / 'config/native_exact.json').read_text())
+    if existing:
+        exact['refinement']['native_library'] = existing
+    exact_config = tmp_path / 'exact.json'
+    exact_config.write_text(json.dumps(exact))
+    subprocess.run([sys.executable, '-B', str(bundle / 'run.py'), '--config', str(exact_config),
+                    '--replay', str(source), '--output', str(tmp_path / 'exact')], cwd=tmp_path,
+                   capture_output=True, text=True, check=True, timeout=60)
+    events = [json.loads(line) for line in (tmp_path / 'exact/events.jsonl').read_text().splitlines()]
+    assert events[1]['srp_diagnostics']['fused_input'] and events[1]['srp_diagnostics']['fft_length'] == 1024
+    assert events[1]['srp_diagnostics']['fft_frames_reused'] == 46
+    assert events[1]['beamforming_diagnostics']['implementation'] == 'refined_stream_fft'
+    config = json.loads((bundle / 'config/default.json').read_text())
+    config['refinement']['native_library'] = str(tmp_path / 'host.so')
+    path = tmp_path / 'host.json'
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match='host-specific'):
+        module.package(model, tmp_path / 'invalid', configuration=path)
+    config['refinement'] = dict(fused_input=False, independent_beams=True)
+    path.write_text(json.dumps(config))
+    beams = module.package(model, tmp_path / 'beams-only', configuration=path)
+    assert beams['native_build_components'] == ['search', 'streaming', 'conditioning']
+    module.verify(bundle)

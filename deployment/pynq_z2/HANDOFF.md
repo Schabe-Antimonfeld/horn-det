@@ -4,7 +4,17 @@ main当前为GC2093单颗USB广角方案；原多相机版本固定于legacy的1
 
 ## 本轮可交付与验收顺序
 
-2026-11-01最新可选包为`deployment/pynq_z2/outputs/conditioning_fast_v1_20261101/pynq_z2_conditioned.zip`，新增PCM16直接处理、调用方输出缓冲及C状态化校准FIR。先执行`python scripts/build_search.py`、`python scripts/build_stream.py`、`python scripts/build_conditioning.py`再`python run.py --check`；`native_build_components=["search","streaming","conditioning"]`。需要匹配的既有采集bit/hwh，包不含固件或视觉权重。412项回归及正负模型/事件回放对拍通过；本机默认约24.1→13.5 μs/包、分数延迟197.7→68.3 μs/包，ARM速度仍待实测。
+最新可选包为`outputs/refinement_fast_v1_20261101/pynq_z2_refined.zip`。在原buffered Conditioning之上增加Hann/折叠融合与逐候选方向输出复用；仍为完整网格、91对、原模型/门限和65抽头，没有新的PL接口。用户新截图稳态中位751→529 ms属于改动前板端记录；本轮没有板卡，500 ms仍待复测。
+
+446项回归、1008构造场景和84连续混合窗口对拍通过，判定和联合F1不变；电脑稳态整窗中位减少约12%–18%，重置及最大值不保证更快，详见[本轮性能与限制](BOARD_PERFORMANCE.md)。
+
+在新包目录依次运行`python scripts/build_search.py`、`python scripts/build_stream.py`、`python scripts/build_conditioning.py`、`python scripts/build_refinement.py`，再`python run.py --check`。`native_build_components=["search","streaming","conditioning","refinement"]`；第四个库`librefinement.so`的ABI=1，编译时关闭浮点乘加收缩并核对含负零的FFT输入。Windows DLL不作为ARM交付物。先保留实际阵列、相机、视觉与overlay配置，只合并`refinement`节；不要用名义参数覆盖真实标定。
+
+使用`python scripts/benchmark_refinement.py --input synchronized-array14.wav --output NEW_REFINEMENT.json`做四实现消融，保存输入/源码/模型/实际库哈希和逐窗数据。重点看SRP的`preparation_seconds`、`fft_seconds`，波束的`output_reused_beams`、`output_reuse_flags`与合成耗时。新增`preparation_seconds`已包含在`fft_seconds`内，不能重复相加；原路径FFT分项不含之前的有限值扫描，新路径含扫描，跨实现优先比较SRP和声学总耗时。
+
+实际道路流至少持续60秒，含静音、干扰、稳定/变化/部分变化方向、缺包和跳窗；报告稳态中位/P90/最大、500 ms超时数和比例、首窗/回退，以及真实采集下的gap、skipped_windows和视觉负载。合作者尚需返回对应阶段报告，暂不做SRP索引压缩。对旧配置回退时只移除新增`refinement`节，或分别关闭两个开关。所有旧包和冻结实验保留。
+
+上一版Conditioning专项包为`deployment/pynq_z2/outputs/conditioning_fast_v1_20261101/pynq_z2_conditioned.zip`，新增PCM16直接处理、调用方输出缓冲及C状态化校准FIR。先执行`python scripts/build_search.py`、`python scripts/build_stream.py`、`python scripts/build_conditioning.py`再`python run.py --check`；`native_build_components=["search","streaming","conditioning"]`。需要匹配的既有采集bit/hwh，包不含固件或视觉权重。412项回归及正负模型/事件回放对拍通过；本机默认约24.1→13.5 μs/包、分数延迟197.7→68.3 μs/包，ARM速度仍待实测。
 
 在真实板端使用`benchmark_conditioning.py --input synchronized-array14.wav --config config/default.json --model model --output NEW_REPORT.json`，保留实际gains/delays、输入、模型、库/源码哈希、中位/P90/最大值；分别检查默认、增益、分数延迟、跨包长延迟及实际配置。参数修改须重建Conditioner，不直接修改其内部状态。采集输出缓冲只在写入WindowBuffer后复用，`feed()`的独立输出语义不变。若C FIR在实际ARM更慢，改`conditioning.fir=numpy`比较；删除整个新增conditioning节可回到上一版。没有以缩短滤波器或放宽可靠性门限获得提速。
 

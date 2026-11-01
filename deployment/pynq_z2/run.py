@@ -77,7 +77,10 @@ def main(argv=None):
     spectral = validate_backend(config, metadata)
     processing = None
     if config.get('streaming', {}).get('enabled'):
-        from ps.streaming import Processing
+        if 'refinement' in config:
+            from ps.refinement import Processing
+        else:
+            from ps.streaming import Processing
         processing = Processing(config, metadata.get('provenance', {}).get('frontend', 'logmel'))
     searcher = None
     if processing is None and config['search'].get('algorithm', 'reference') != 'reference':
@@ -102,6 +105,7 @@ def main(argv=None):
                           'search_implementation': config['search'].get('implementation', 'numpy'),
                           'beamforming_implementation': config.get('beamforming', {}).get('implementation', 'reference'),
                           'streaming_enabled': processing is not None,
+                          'refinement': config.get('refinement'),
                           'conditioning_implementation': (config['conditioning'].get('implementation', 'buffered')
                                                            if prepared is not None else config.get('streaming', {}).get('conditioning', 'numpy')),
                           'conditioning_fir': getattr(prepared, 'fir', 'numpy'),

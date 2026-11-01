@@ -10,6 +10,34 @@ main当前适配单颗GC2093 USB广角摄像头；legacy分支冻结1f11b16。�
 
 商品截图参数、USB/标定验收、固定仿真结果和Tiny CNN限制见[单颗广角相机说明](CAMERA.md)。
 
+## Hann融合与逐方向复用版（2026-11-01）
+
+新增可选`config/band_refined.json`，继承`band_conditioned.json`，增加`refinement.fused_input=true`与`independent_beams=true`。旧配置和冻结实现保留；两项开关可单独关闭。最新包为`outputs/refinement_fast_v1_20261101/pynq_z2_refined.zip`，模型仍为BandTemporalMLP-30866、标签405187002，方向/抓拍门限0.95/0.90。
+
+Hann加权与折叠直接从PCM写入复用工作区，避免先生成47×14×1024的完整加权数组；保留原对称Hann、double FFT输入、折叠因子和累加次序，包括负零的处理。不改变PHAT精度、频率梳、完整5580方向、91对和原12帧分组。新增ABI=1的`ps/librefinement.so`，不增加PL核。
+
+候选输出按每个精确方向独立判断：一个方向变化时，仅重算该方向，不连带另一个稳定方向。输入FFT仍共享；窗首因果边界重新计算，输出不改变长度或群延迟。不对角度取整、不用上窗方向替代当前搜索。缺包、跳窗、epoch、窗口或全部重叠PCM不符时继续全量重算。`output_reused`仍表示全部候选命中，新增`output_reused_beams`和`output_reuse_flags`记录逐候选命中。
+
+在新包目录执行：
+
+```text
+python scripts/build_search.py
+python scripts/build_stream.py
+python scripts/build_conditioning.py
+python scripts/build_refinement.py
+python run.py --check
+python scripts/benchmark_refinement.py --input synchronized-array14.wav --output NEW_REFINEMENT.json
+python run.py --replay synchronized-array14.wav --output NEW_REPLAY_OUTPUT
+```
+
+四个库均在目标ARM镜像编译；构建器不覆盖现有库、不安装依赖。独立包不含开发机DLL、bit/hwh或视觉模型，需使用已验收的采集固件和实际标定。`run.py`通过Processing注入新路径，旧Pipeline和实验源文件保持冻结；程序化调用新实现时使用`ps.refinement.Processing(config)`传给`Pipeline(..., processing=...)`。
+
+`benchmark_refinement.py`轮换比较原流式实现、仅Hann融合、仅逐方向复用、两项合并；报告首窗、重置、稳态、中位/P90/最大、超过500 ms的窗口数、四类候选变化、完整网格/分数/事件对拍及输入/源码/权重/实际加载库哈希。计时排除采集等待、Conditioning、相机和日志；用户截图529 ms仍需同口径ARM复测，不能由电脑比例推断达标。结果及验收见[性能说明](BOARD_PERFORMANCE.md)。
+
+446项回归、1008个既有构造场景和84个连续混合窗口对拍通过，主/压力联合F1和候选/事件判定不变。电脑正例/方向阶跃流稳态整窗中位分别17.56→14.47 ms、36.32→32.02 ms；部分候选变化时波束中位再降约6%–11%，全部变化没有该项复用收益。首窗/重置和最大值不保证更快，完整证据与限制见上述性能说明。
+
+回退只需移除新增`refinement`节，保留实际校准及其余配置；或者单独关闭一项开关对照。若`fused_input=false`，应同时移除`refinement.native_library`，不再需要第四个库。SRP索引压缩暂未实施，等待ARM新分项证据。
+
 ## Conditioning 专项快速版（2026-11-01）
 
 新增`config/band_conditioned.json`，继承连续窗口快速版并启用`conditioning.implementation=buffered`、`fir=native`。支持直接读取PCM16，初始化时绑定C状态及校准参数，复用逐包输出和历史工作区；有时延校准时，C合并65抽头FIR和整数延迟。无时延校准则跳过FIR，保留原归一化、去直流、增益和延迟语义。参数在实例内固定，修改配置后重新创建实例。
