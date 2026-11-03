@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>鸣笛监测中心 · 实时监控与历史抓拍</title>
+  <meta name="description" content="鸣笛检测监控台：单摄像头单路口的实时监控画面、设备状态、实时事件与历史抓拍。">
+  <style>
+    /* design-systems/dashboard/tokens.css
+     * Structured token bindings for Dashboard.
+     * analytics dashboard with compact cards, cool surfaces, and status-first information design.
+     */
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-warm: #eef6ff;
+      --fg: #111827;
+      --fg-2: #334155;
+      --muted: #64748b;
+      --meta: #0ea5e9;
+      --border: #d8e2ee;
+      --border-soft: #edf3f8;
+      --accent: #0ea5e9;
+      --accent-on: #04131d;
+      --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+      --accent-active: color-mix(in oklab, var(--accent), black 14%);
+      --success: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --font-display: Inter, system-ui, sans-serif;
+      --font-body: Inter, system-ui, sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+      --text-xs: 11px;
+      --text-sm: 13px;
+      --text-base: 15px;
+      --text-lg: 17px;
+      --text-xl: 22px;
+      --text-2xl: 30px;
+      --text-3xl: 42px;
+      --text-4xl: 56px;
+      --leading-body: 1.48;
+      --leading-tight: 1.1;
+      --tracking-display: -0.015em;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-12: 48px;
+      --section-y-desktop: 84px;
+      --section-y-tablet: 60px;
+      --section-y-phone: 42px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-pill: 9999px;
+      --elev-flat: none;
+      --elev-ring: 0 0 0 1px var(--border);
+      --elev-raised: 0 18px 46px rgba(15, 23, 42, 0.10);
+      --focus-ring: 0 0 0 4px rgba(14, 165, 233, 0.22);
+      --motion-fast: 120ms;
+      --motion-base: 200ms;
+      --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+      --container-max: 1280px;
+      --container-gutter-desktop: 36px;
+      --container-gutter-tablet: 24px;
+      --container-gutter-phone: 16px;
+    }
+
+    :root {
+      --meta-ink: color-mix(in oklab, var(--meta), black 40%);
+      --accent-ink: color-mix(in oklab, var(--accent), black 46%);
+      --feed-scrim-strong: color-mix(in oklab, var(--fg), transparent 16%);
+      --feed-scrim-soft: color-mix(in oklab, var(--fg), transparent 46%);
+      --feed-chip: color-mix(in oklab, var(--fg), transparent 22%);
+      --live-red: color-mix(in oklab, var(--danger), black 30%);
+      --shadow-soft: 0 12px 30px color-mix(in oklab, var(--fg), transparent 92%);
+      --chip-info-bg: color-mix(in oklab, var(--accent), white 84%);
+      --chip-info-ink: color-mix(in oklab, var(--accent), black 52%);
+      --chip-danger-bg: color-mix(in oklab, var(--danger), white 86%);
+      --chip-danger-ink: color-mix(in oklab, var(--danger), black 34%);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body.dialog-open { overflow: hidden; }
+    img { display: block; max-width: 100%; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    h1, h2, h3, p, dl, dd, dt, figure { margin: 0; }
+    ::selection { background: color-mix(in oklab, var(--accent), white 62%); color: var(--fg); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: absolute;
+      top: -64px;
+      left: var(--space-4);
+      z-index: 100;
+      padding: 10px 14px;
+      background: var(--fg);
+      color: var(--surface);
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      transition: top var(--motion-fast) var(--ease-standard);
+    }
+    .skip-link:focus { top: var(--space-3); }
+
+    :where(button, a, input, select):focus-visible {
+      outline: 2px solid var(--fg);
+      outline-offset: 2px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--container-max);
+      margin-inline: auto;
+      padding-inline: var(--container-gutter-desktop);
+    }
+
+    .od-icon {
+      width: var(--od-icon-size, 1em);
+      height: var(--od-icon-size, 1em);
+      flex: none;
+      display: inline-block;
+      vertical-align: -0.125em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .icon-16 { --od-icon-size: 16px; }
+    .icon-18 { --od-icon-size: 18px; }
+    .icon-24 { --od-icon-size: 24px; }
+    .icon-28 { --od-icon-size: 28px; }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      min-height: 68px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-md);
+      background: var(--fg);
+      color: var(--surface);
+    }
+    .brand-mark svg { width: 22px; height: 22px; }
+    .brand-copy { display: grid; gap: 1px; min-width: 0; }
+    .brand-name {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .brand-sub {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.13em;
+      line-height: 1.2;
+      color: var(--meta-ink);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 0;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: var(--radius-pill);
+      background: var(--surface-warm);
+      border: 1px solid var(--border-soft);
+      color: var(--fg-2);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      flex: none;
+      border-radius: var(--radius-pill);
+      background: var(--success);
+    }
+    .demo-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-2);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .header-clock {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg-2);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .header-clock .clock-time { color: var(--fg); font-weight: 600; }
+
+    .page { padding-block: var(--space-6) var(--space-8); }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.72fr) minmax(300px, 1fr);
+      gap: var(--space-6);
+      align-items: start;
+    }
+    .live-column { min-width: 0; }
+    .side-stack { display: grid; gap: var(--space-4); min-width: 0; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-5);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      line-height: 1.4;
+      color: var(--meta-ink);
+      text-transform: uppercase;
+    }
+    .live-heading { min-width: 0; }
+    .live-heading h2 {
+      margin-top: 3px;
+      font-size: var(--text-xl);
+      line-height: 1.15;
+      letter-spacing: var(--tracking-display);
+    }
+    .live-sub {
+      margin-top: 4px;
+      color: var(--fg-2);
+      font-size: var(--text-sm);
+    }
+    .live-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-2);
+      min-width: 0;
+    }
+    .status-pill-inline { background: var(--surface); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+      transition:
+        background-color var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) var(--ease-standard),
+        color var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-fast) var(--ease-standard),
+        transform var(--motion-fast) var(--ease-standard);
+    }
+    .btn-primary { background: var(--accent); color: var(--accent-on); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--fg);
+      border-color: var(--border);
+    }
+    .btn:disabled {
+      background: var(--surface-warm);
+      color: var(--muted);
+      border-color: var(--border-soft);
+      cursor: not-allowed;
+    }
+    .btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-color: var(--accent); box-shadow: none; }
+
+    .feed {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: var(--fg);
+      color: var(--surface);
+      isolation: isolate;
+    }
+    .feed > img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(0.92) contrast(1.02);
+      transition: filter var(--motion-base) var(--ease-standard);
+    }
+    .feed-scrim {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom,
+          color-mix(in oklab, var(--fg), transparent 28%) 0%,
+          transparent 28%,
+          transparent 64%,
+          color-mix(in oklab, var(--fg), transparent 18%) 100%);
+    }
+    .feed.is-paused > img { filter: grayscale(0.45) brightness(0.74); }
+    .feed:fullscreen { aspect-ratio: auto; width: 100vw; height: 100vh; }
+    .feed-top, .feed-bottom {
+      position: absolute;
+      left: var(--space-3);
+      right: var(--space-3);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .feed-top { top: var(--space-3); }
+    .feed-bottom { bottom: var(--space-3); align-items: flex-end; }
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: var(--radius-sm);
+      background: var(--live-red);
+      color: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      line-height: 1;
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      animation: live-pulse 2s var(--ease-standard) infinite;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.78); }
+    }
+    .feed.is-paused .live-dot { animation: none; opacity: 0.5; }
+    .feed-clock {
+      padding: 6px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--feed-chip);
+      border: 1px solid color-mix(in oklab, var(--surface), transparent 72%);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: var(--surface);
+    }
+    .feed-place, .feed-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--surface);
+      text-shadow: 0 1px 3px var(--feed-scrim-strong);
+    }
+    .feed-place { font-weight: 600; letter-spacing: 0.02em; }
+    .feed-meta { color: color-mix(in oklab, var(--surface), transparent 18%); }
+
+.detect span {
+      position: absolute;
+      top: -22px;
+      left: -1px;
+      min-height: 20px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: var(--accent);
+      color: var(--accent-on);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+.detect-b { left: 29%; top: 63%; width: 19%; height: 16%; border-color: var(--success); }
+
+.pause-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      background: color-mix(in oklab, var(--fg), transparent 46%);
+      pointer-events: none;
+    }
+    .pause-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      color: var(--fg);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      box-shadow: var(--shadow-soft);
+    }
+    .pause-chip::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: var(--radius-pill);
+      background: var(--warn);
+    }
+
+    .feed-readout {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      background: var(--surface-warm);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .readout-item {
+      min-width: 0;
+      padding: 10px var(--space-5);
+      border-right: 1px solid var(--border-soft);
+    }
+    .readout-item:last-child { border-right: 0; }
+    .readout-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--fg-2);
+    }
+    .readout-value {
+      display: block;
+      margin-top: 2px;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--fg);
+      white-space: nowrap;
+    }
+
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .metric {
+      min-width: 0;
+      padding: 14px var(--space-5) 16px;
+      border-right: 1px solid var(--border-soft);
+    }
+    .metric:last-child { border-right: 0; }
+    .metric strong {
+      display: block;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      line-height: var(--leading-tight);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric span {
+      display: block;
+      margin-top: 2px;
+      color: var(--fg-2);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .side-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 16px var(--space-5);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .side-title {
+      margin-top: 2px;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .event-count {
+      color: var(--fg-2);
+      font-size: 10px;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      padding-top: 3px;
+    }
+    .status-list { padding: 6px var(--space-5) 10px; }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .status-row:last-child { border-bottom: 0; }
+    .status-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--fg-2);
+      font-size: 12px;
+    }
+    .status-value {
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .event-list { display: grid; padding: 6px; gap: 2px; }
+    .event-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--fg);
+      text-align: left;
+      transition: background-color var(--motion-fast) var(--ease-standard);
+    }
+    .event-item:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
+    .event-time {
+      color: var(--fg-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.5;
+      padding-top: 2px;
+      white-space: nowrap;
+    }
+    .event-main { display: block; min-width: 0; }
+    .event-title {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .event-meta {
+      display: block;
+      margin-top: 1px;
+      color: var(--fg-2);
+      font-size: 10px;
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .kind-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 0 6px;
+      border-radius: 5px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .kind-chip.is-horn { background: var(--chip-danger-bg); color: var(--chip-danger-ink); }
+    .kind-chip.is-candidate { background: var(--chip-info-bg); color: var(--chip-info-ink); }
+    .kind-chip.is-neutral { background: var(--surface-warm); color: var(--fg-2); }
+
+    .history { margin-top: var(--space-8); }
+    .history-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+    .history-head h2 {
+      margin-top: 2px;
+      font-size: var(--text-2xl);
+      line-height: var(--leading-tight);
+      letter-spacing: var(--tracking-display);
+    }
+    .history-sub {
+      margin-top: 6px;
+      max-width: 62ch;
+      color: var(--fg-2);
+      font-size: var(--text-sm);
+      line-height: 1.55;
+    }
+    .result-count {
+      color: var(--fg-2);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      white-space: nowrap;
+      padding-bottom: 4px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: var(--space-4);
+    }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      color: var(--fg-2);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      transition:
+        background-color var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) var(--ease-standard),
+        color var(--motion-fast) var(--ease-standard);
+    }
+    .chip .count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      color: currentColor;
+      opacity: 0.78;
+    }
+    .chip[aria-pressed="true"] {
+      background: var(--fg);
+      border-color: var(--fg);
+      color: var(--surface);
+    }
+    .toolbar-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-left: auto;
+      min-width: 0;
+    }
+    .field-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 8px 0 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+    }
+    .field-inline label {
+      color: var(--fg-2);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .field-inline:focus-within {
+      border-color: var(--accent);
+      outline: 2px solid var(--fg);
+      outline-offset: 1px;
+      box-shadow: var(--focus-ring);
+    }
+    .field-inline select,
+    .field-inline input {
+      min-height: 42px;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      font-size: var(--text-sm);
+      outline: none;
+    }
+    .field-inline select { padding: 0 6px 0 0; cursor: pointer; }
+    .field-inline input { width: 100%; min-width: 0; padding: 0 4px 0 0; }
+    .field-inline input::placeholder { color: var(--muted); }
+    .search-field { flex: 1 1 220px; min-width: 0; }
+    .search-field .od-icon { color: var(--fg-2); }
+
+    .snap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: start;
+      gap: var(--space-4);
+    }
+    .snap-card {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      color: var(--fg);
+      text-align: left;
+      box-shadow: 0 1px 2px color-mix(in oklab, var(--fg), transparent 95%);
+      transition:
+        border-color var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-base) var(--ease-standard),
+        transform var(--motion-base) var(--ease-standard);
+    }
+    .snap-card:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+    .snap-media {
+      position: relative;
+      display: block;
+      background: var(--fg);
+    }
+    .snap-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .snap-kind {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      box-shadow: 0 1px 4px color-mix(in oklab, var(--fg), transparent 72%);
+    }
+    .snap-kind.is-horn { background: var(--chip-danger-bg); color: var(--chip-danger-ink); }
+    .snap-kind.is-candidate { background: var(--chip-info-bg); color: var(--chip-info-ink); }
+    .snap-body { display: block; padding: 12px 14px 14px; min-width: 0; }
+    .snap-title {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .snap-meta {
+      display: block;
+      margin-top: 2px;
+      color: var(--fg-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .empty {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      padding: 52px 24px;
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      text-align: center;
+    }
+    .empty .od-icon { color: var(--meta-ink); }
+    .empty h3 { font-size: 16px; font-weight: 700; }
+    .empty p {
+      max-width: 42ch;
+      color: var(--fg-2);
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+    .empty .btn { margin-top: 8px; }
+    .load-row { display: flex; justify-content: center; margin-top: var(--space-5); }
+
+    .site-footer {
+      border-top: 1px solid var(--border);
+      margin-top: var(--space-8);
+      padding-block: var(--space-4);
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      color: var(--fg-2);
+      font-size: 10px;
+      line-height: 1.6;
+    }
+    .footer-inner p:first-child { color: var(--fg); font-weight: 600; }
+
+    .detail-dialog {
+      width: min(960px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      max-height: calc(100dvh - 48px);
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: var(--elev-raised);
+      overflow: auto;
+    }
+    .detail-dialog::backdrop {
+      background: color-mix(in oklab, var(--fg), transparent 38%);
+    }
+    .dialog-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: 16px var(--space-5);
+      border-bottom: 1px solid var(--border-soft);
+      background: var(--surface);
+    }
+    .dialog-head h2 {
+      margin-top: 2px;
+      font-size: var(--text-xl);
+      line-height: 1.2;
+      letter-spacing: var(--tracking-display);
+    }
+    .dialog-sub {
+      margin-top: 3px;
+      color: var(--fg-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+    .icon-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      flex: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--fg);
+      transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+    }
+    .icon-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; box-shadow: none; border-color: var(--accent); }
+    .dialog-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(270px, 1fr);
+      align-items: stretch;
+    }
+    .detail-media {
+      display: flex;
+      flex-direction: column;
+      background: var(--fg);
+      min-width: 0;
+    }
+    .detail-media img {
+      width: 100%;
+      height: auto;
+      max-height: 58vh;
+      object-fit: contain;
+      background: var(--fg);
+    }
+    .detail-media figcaption {
+      padding: 9px var(--space-4);
+      background: var(--fg);
+      color: color-mix(in oklab, var(--surface), transparent 12%);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+    .detail-info {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      padding: var(--space-5);
+      min-width: 0;
+    }
+    .detail-status-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .detail-grid { display: grid; gap: 0; }
+    .detail-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-row dt { color: var(--fg-2); font-size: 11px; white-space: nowrap; }
+    .detail-row dd {
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-align: right;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: auto; }
+    .detail-actions .btn { flex: 1 1 110px; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: var(--space-6);
+      z-index: 60;
+      max-width: calc(100vw - 32px);
+      padding: 10px var(--space-4);
+      border-radius: var(--radius-pill);
+      background: var(--fg);
+      color: var(--surface);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-align: center;
+      transform: translateX(-50%);
+      box-shadow: var(--shadow-soft);
+    }
+
+    @media (hover: hover) {
+      .btn-primary:hover { background: var(--accent-hover); }
+      .btn-secondary:hover { border-color: var(--accent); color: var(--accent-ink); }
+      .icon-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+      .chip:hover { border-color: var(--accent); color: var(--accent-ink); }
+      .chip[aria-pressed="true"]:hover { color: var(--surface); border-color: var(--fg); }
+      .event-item:hover { background: var(--surface-warm); }
+      .snap-card:hover {
+        border-color: color-mix(in oklab, var(--accent), transparent 42%);
+        box-shadow: var(--shadow-soft);
+        transform: translateY(-1px);
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+      .side-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 1023px) {
+      .container { padding-inline: var(--container-gutter-tablet); }
+      .snap-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 860px) {
+      .live-head { flex-wrap: wrap; }
+      .live-controls { justify-content: flex-start; }
+      .toolbar-fields { margin-left: 0; width: 100%; }
+      .search-field { flex: 1 1 100%; }
+      .dialog-body { grid-template-columns: minmax(0, 1fr); }
+      .detail-media img { max-height: 42vh; }
+    }
+    @media (max-width: 680px) {
+      .brand-sub { display: none; }
+      .demo-tag { display: none; }
+      .header-clock .clock-date { display: none; }
+      .side-stack { grid-template-columns: minmax(0, 1fr); }
+      .feed-top { left: var(--space-2); right: var(--space-2); top: var(--space-2); }
+      .feed-bottom { left: var(--space-2); right: var(--space-2); bottom: var(--space-2); }
+      .feed-meta { max-width: 46%; text-align: right; }
+
+.readout-item, .metric { padding-inline: var(--space-4); }
+      .metric strong { font-size: 26px; }
+      .history-head h2 { font-size: 26px; }
+    }
+    @media (max-width: 639px) {
+      .container { padding-inline: var(--container-gutter-phone); }
+      .page { padding-block: var(--space-4) var(--space-6); }
+      .panel-head { padding: var(--space-4); }
+      .live-controls { width: 100%; }
+      .live-controls .status-pill-inline { display: none; }
+      .live-controls .btn { flex: 1 1 auto; }
+      .snap-grid { grid-template-columns: minmax(0, 1fr); }
+      .history { margin-top: var(--space-6); }
+      .toolbar { padding: var(--space-2); }
+      .filter-group { width: 100%; }
+      .chip { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+      .detail-dialog { width: calc(100vw - 24px); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); }
+      .dialog-head { padding: 12px var(--space-4); }
+      .detail-info { padding: var(--space-4); }
+      .feed-readout { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .readout-label { letter-spacing: 0; }
+      .readout-value { font-size: 13px; }
+      .feed-clock { font-size: 10px; padding: 5px 7px; }
+      .header-inner { min-height: 62px; gap: 10px; }
+      .header-right { gap: 8px; }
+      .status-pill { font-size: 10px; padding: 0 8px; }
+      .brand-mark { width: 34px; height: 34px; }
+      .brand-name { font-size: 15px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .status-list .dot { background:var(--muted); }
+    .service-controls { margin-bottom:24px; padding:18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .service-controls select { padding:9px; max-width:100%; border:1px solid var(--border); border-radius:8px; background:white; }
+    #service-message { width:100%; color:var(--muted); overflow-wrap:anywhere; }
+    .frame-empty { min-height:300px; display:grid; place-items:center; padding:48px 20px; color:white; text-align:center; }
+    #detail-evidence { font-size:13px; color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .snap-missing { min-height:160px; display:grid; place-items:center; background:var(--surface-warm); color:var(--muted); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    #preview-image { width:100%; height:100%; object-fit:contain; }
+    #event-list .event-item { cursor:default; }
+    @media(max-width:600px) { .service-controls { gap:8px; } .service-controls select { width:100%; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#live" aria-label="鸣笛监测中心">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4Z"/>
+            <path d="M16 9a4.5 4.5 0 0 1 0 6"/>
+            <path d="M18.6 6.4a8 8 0 0 1 0 11.2"/>
+          </svg>
+        </span>
+        <span class="brand-copy">
+          <span class="brand-name">鸣笛监测中心</span>
+          <span class="brand-sub">Horn Detection Console</span>
+        </span>
+      </a>
+      <div class="header-right">
+        <span class="status-pill" id="connection-state">正在连接</span>
+        <span class="demo-tag" id="mode-label">未启动</span>
+        <time class="header-clock" id="header-clock" datetime="">
+          <span class="clock-date" id="header-clock-date">—</span>
+          <span class="clock-time" id="header-clock-time">—</span>
+        </time>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container page">
+    <h1 class="sr-only">鸣笛检测监控台</h1>
+    <section class="panel service-controls" aria-label="运行控制">
+      <label for="run-mode">数据来源</label>
+      <select id="run-mode"><option value="horn">鸣笛音频回放</option><option value="silence">静音音频回放</option><option value="live">PYNQ-Z2 实机采集</option></select>
+      <button class="btn btn-primary" id="start-btn" type="button" disabled>启动</button>
+      <button class="btn btn-secondary" id="stop-btn" type="button" disabled>停止</button>
+      <span id="operating-point">单窗 0.90</span>
+      <p id="service-message" role="status">正在连接后端服务…</p>
+    </section>
+
+    <div class="layout">
+      <section class="live-column" aria-labelledby="live-title">
+        <article class="panel live-panel" id="live">
+          <header class="panel-head live-head">
+            <div class="live-heading">
+              <p class="eyebrow">Camera · wide-0</p>
+              <h2 id="live-title">实时监控</h2>
+              <p class="live-sub">GC2093 广角相机 · 声源候选点</p>
+            </div>
+            <div class="live-controls">
+              <span class="status-pill status-pill-inline" id="frame-state">无画面</span>
+              <button class="btn btn-secondary" id="pause-btn" type="button" aria-pressed="false">
+                <svg class="od-icon icon-16" id="pause-icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 5v14M15 5v14"/>
+                </svg>
+                <svg class="od-icon icon-16" id="pause-icon-play" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                  <path d="M8 5.5v13l10-6.5-10-6.5Z"/>
+                </svg>
+                <span id="pause-label">暂停画面</span>
+              </button>
+              <button class="btn btn-secondary" id="fullscreen-btn" type="button">
+                <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/>
+                </svg>
+                <span id="fullscreen-label">全屏</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="feed" id="live-feed">
+            <img id="preview-image" width="1920" height="1080" alt="相机缓存预览" hidden><div class="frame-empty" id="frame-empty">未收到相机画面</div>
+            <div class="feed-scrim" aria-hidden="true"></div>
+
+            <div class="feed-top" aria-hidden="true">
+              <span class="live-badge" id="live-badge">无画面</span>
+              <span class="feed-clock"><span id="feed-clock-date">—</span> <span id="feed-clock-time">—</span></span>
+            </div>
+
+
+
+
+            <div class="feed-bottom" aria-hidden="true">
+              <span class="feed-place">wide-0 · 广角相机</span>
+              <span class="feed-meta" id="preview-meta">等待真实相机缓存</span>
+            </div>
+
+            <div class="pause-overlay" id="feed-pause-overlay" role="status" hidden>
+              <span class="pause-chip">画面已暂停</span>
+            </div>
+          </div>
+
+          <div class="feed-readout" aria-label="当前检测读数">
+            <div class="readout-item">
+              <span class="readout-label">声源方位</span>
+              <strong class="readout-value" id="readout-bearing">—</strong>
+            </div>
+            <div class="readout-item">
+              <span class="readout-label">鸣笛分数</span>
+              <strong class="readout-value" id="readout-confidence">—</strong>
+            </div>
+            <div class="readout-item">
+              <span class="readout-label">声学处理耗时</span>
+              <strong class="readout-value" id="readout-latency">—</strong>
+            </div>
+          </div>
+
+          <div class="metrics" aria-label="今日累计">
+            <div class="metric">
+              <strong id="metric-today">—</strong>
+              <span>今日抓拍（UTC）</span>
+            </div>
+            <div class="metric">
+              <strong id="metric-horn">—</strong>
+              <span>今日鸣笛事件（UTC）</span>
+            </div>
+            <div class="metric">
+              <strong id="metric-gaps">—</strong>
+              <span>丢包 / 跳窗</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-stack" aria-label="设备与实时事件">
+        <section class="panel" aria-labelledby="status-title">
+          <div class="side-head">
+            <div>
+              <p class="eyebrow">System status</p>
+              <h2 class="side-title" id="status-title">设备状态</h2>
+            </div>
+            <span class="status-pill" id="device-state">未检查</span>
+          </div>
+          <div class="status-list">
+            <div class="status-row">
+              <span class="status-label"><span class="dot" aria-hidden="true"></span>相机 GC2093</span>
+              <span class="status-value" id="camera-state">未检查</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label"><span class="dot" aria-hidden="true"></span>麦克风阵列</span>
+              <span class="status-value" id="audio-state">未检查</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label"><span class="dot" aria-hidden="true"></span>边缘推理</span>
+              <span class="status-value" id="inference-state">未检查</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label"><span class="dot" aria-hidden="true"></span>本地存储</span>
+              <span class="status-value" id="storage-state">未检查</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="events-title">
+          <div class="side-head">
+            <div>
+              <p class="eyebrow">Recent events</p>
+              <h2 class="side-title" id="events-title">实时事件</h2>
+            </div>
+            <span class="event-count">最近 4 个分析窗口</span>
+          </div>
+          <div class="event-list" id="event-list"></div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="history" id="history" aria-labelledby="history-title">
+      <div class="history-head">
+        <div>
+          <p class="eyebrow">Archive</p>
+          <h2 id="history-title">历史抓拍</h2>
+          <p class="history-sub">相机保存的原图与声源候选点图。点表示估计声源方向，车辆归属未验证。</p>
+        </div>
+        <div><button class="btn btn-secondary" id="refresh-photos" type="button">刷新记录</button><p class="result-count" id="result-count" aria-live="polite">共 0 张抓拍</p></div>
+      </div>
+
+      <div class="toolbar" role="group" aria-label="抓拍筛选">
+        <div class="filter-group" role="group" aria-label="按类型筛选">
+          <button class="chip" type="button" data-filter="all" id="filter-all" aria-pressed="true">
+            全部 <span class="count" id="count-all">0</span>
+          </button>
+          <button class="chip" type="button" data-filter="horn" id="filter-horn" aria-pressed="false">
+            鸣笛 <span class="count" id="count-horn">0</span>
+          </button>
+          <button class="chip" type="button" data-filter="candidate" id="filter-candidate" aria-pressed="false">
+            未确认 <span class="count" id="count-candidate">0</span>
+          </button>
+        </div>
+        <div class="toolbar-fields">
+          <div class="field-inline">
+            <label for="range-filter">时间</label>
+            <select id="range-filter">
+              <option value="all">全部</option>
+              <option value="today">今天</option>
+              <option value="week">近 7 天</option>
+            </select>
+          </div>
+          <div class="field-inline search-field">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"/>
+              <path d="m16 16 4 4"/>
+            </svg>
+            <label for="snap-search">搜索</label>
+            <input id="snap-search" type="search" placeholder="抓拍编号或类型" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="snap-grid" id="snap-grid"></div>
+
+      <div class="empty" id="empty-state" hidden>
+        <svg class="od-icon icon-28" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/>
+          <path d="m16 16 4 4"/>
+        </svg>
+        <h3>没有符合条件的抓拍</h3>
+        <p>调整类型、时间范围或搜索词后重试，也可以清除筛选查看全部记录。</p>
+        <button class="btn btn-secondary" id="empty-clear" type="button">清除筛选</button>
+      </div>
+
+      <div class="load-row">
+        <button class="btn btn-secondary" id="load-more" type="button">
+          <span id="load-more-label">加载更多</span>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>鸣笛监测中心 · 单窗 0.90</p>
+      <p>回放不代表实机验收 · 声源点不代表车辆身份确认</p>
+    </div>
+  </footer>
+
+  <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Capture detail</p>
+        <h2 id="detail-title">抓拍详情</h2>
+        <p class="dialog-sub" id="detail-sub">抓拍记录</p>
+      </div>
+      <button class="icon-btn" id="detail-close" type="button" aria-label="关闭详情">
+        <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <figure class="detail-media">
+        <img id="detail-image" width="1200" height="900" alt="">
+        <figcaption id="detail-caption"></figcaption>
+      </figure>
+      <div class="detail-info">
+        <div class="detail-status-row" id="detail-status-row"></div>
+        <dl class="detail-grid">
+          <div class="detail-row"><dt>抓拍时间</dt><dd id="detail-time">—</dd></div>
+          <div class="detail-row"><dt>点位</dt><dd id="detail-location">—</dd></div>
+          <div class="detail-row"><dt>相机</dt><dd id="detail-camera">—</dd></div>
+          <div class="detail-row"><dt>类型</dt><dd id="detail-kind">—</dd></div>
+          <div class="detail-row"><dt>声源方位</dt><dd id="detail-bearing">—</dd></div>
+          <div class="detail-row"><dt>鸣笛分数</dt><dd id="detail-confidence">—</dd></div>
+        </dl>
+        <p id="detail-evidence"></p><div class="detail-actions"><button class="btn btn-secondary" id="toggle-original" type="button">查看原图</button><a class="btn btn-secondary" id="download-photo" download>下载图片</a>
+          <button class="btn btn-secondary" id="detail-prev" type="button">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m14 6-6 6 6 6"/>
+            </svg>
+            上一张
+          </button>
+          <button class="btn btn-secondary" id="detail-next" type="button">
+            下一张
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m10 6 6 6-6 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

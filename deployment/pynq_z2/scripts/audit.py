@@ -34,8 +34,10 @@ def audit():
     if [path.name for path in (ROOT / 'config').glob('*.json')] != ['default.json']:
         raise ValueError('Only one current configuration may be shipped')
     config = load_config()
-    if (config['detector']['threshold'], config['detector']['capture_threshold'], config['detector']['model_tag']) != (0.95, 0.9, 405187002):
+    if (config['detector']['threshold'], config['detector']['capture_threshold'], config['detector']['model_tag']) != (0.9, 0.9, 405187002):
         raise ValueError('Frozen operating point changed')
+    if config['event']['confirm'] != 1:
+        raise ValueError('Current operating point requires one-window confirmation')
     verify_assets(ROOT)
     return dict(result='passed', documents=len(documents), local_links=links, model_tag=405187002,
                 scope='Local links, Python syntax and current configuration/assets; no external URL or hardware acceptance')

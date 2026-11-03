@@ -217,3 +217,11 @@ def test_checkerboard_coverage_is_measured_across_the_image():
     specification.loader.exec_module(tool)
     points = np.array([[x, y] for x in (100, 600, 1100, 1600) for y in (100, 500, 900)])
     assert tool.calibration_quality([points], 1920, 1080)['occupied_cells'] == 12
+
+
+
+def test_point_only_configuration_rejects_obsolete_vehicle_model_settings():
+    config = load_config()
+    config['vision']['model'] = 'old-yolo.onnx'
+    with pytest.raises(ValueError, match='without a vehicle model'):
+        validate_config(config)

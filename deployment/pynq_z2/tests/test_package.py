@@ -25,6 +25,7 @@ def test_bundle_is_deterministic_complete_and_independent_of_checkout(tmp_path):
         assert not any(name.endswith(('.dll','.so','.bit','.hwh')) or 'prototype/' in name for name in names)
         assert [name for name in names if name.startswith('config/')] == ['config/default.json']
         assert 'model/weights.npz' in names and 'evaluation/test-original.npz' in names
+        assert {'frontend/index.html', 'frontend/app.js', 'frontend/README.md', 'web.py', 'ps/dashboard.py'} <= set(names)
         archive.extractall(bundle)
     assert verify(bundle) == manifest
     completed = subprocess.run([sys.executable, '-I', '-B', str(bundle/'reproduce.py'), '--output', str(tmp_path/'reproduced'),

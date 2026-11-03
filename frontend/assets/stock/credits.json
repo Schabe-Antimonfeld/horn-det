@@ -1,0 +1,136 @@
+{
+  "note": "Localized demo imagery for the monitoring frontend prototype. Source pages, authors, and licenses are recorded here; the images are not shown as credits inside the UI.",
+  "retrieved": "2026-11-03",
+  "images": [
+    {
+      "file": "live.jpg",
+      "author": "cphuyal",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/10661529/",
+      "image": "https://images.pexels.com/photos/10661529/pexels-photo-10661529.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a busy urban intersection with cars and buildings in autumn"
+    },
+    {
+      "file": "snap-01.jpg",
+      "author": "Richard Melick",
+      "source": "Unsplash",
+      "page": "https://unsplash.com/s/photos/traffic-intersection",
+      "image": "https://images.unsplash.com/photo-1623173651777-e013ac17e563",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "subject": "Aerial view of a city street intersection"
+    },
+    {
+      "file": "snap-02.jpg",
+      "author": "Kenny Elshoff",
+      "source": "Unsplash",
+      "page": "https://unsplash.com/s/photos/traffic-intersection",
+      "image": "https://images.unsplash.com/photo-1647353154271-4e706f07e55a",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "subject": "Aerial view of a street intersection in autumn"
+    },
+    {
+      "file": "snap-03.jpg",
+      "author": "meeehdisalehi",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/31468393/",
+      "image": "https://images.pexels.com/photos/31468393/pexels-photo-31468393.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a complex urban highway interchange in daytime"
+    },
+    {
+      "file": "snap-04.jpg",
+      "author": "Adam Berkecz",
+      "source": "Unsplash",
+      "page": "https://unsplash.com/s/photos/traffic-intersection",
+      "image": "https://images.unsplash.com/photo-1586104730754-ffc0ed261e0d",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "subject": "Cars on a road during daytime"
+    },
+    {
+      "file": "snap-05.jpg",
+      "author": "Ashton Southall",
+      "source": "Unsplash",
+      "page": "https://unsplash.com/s/photos/traffic-intersection",
+      "image": "https://images.unsplash.com/photo-1703331948502-595a097fbdde",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "subject": "Aerial view of a street intersection with buildings"
+    },
+    {
+      "file": "snap-06.jpg",
+      "author": "Gaion",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/34298466/",
+      "image": "https://images.pexels.com/photos/34298466/pexels-photo-34298466.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a highway interchange in Londrina, Brazil"
+    },
+    {
+      "file": "snap-07.jpg",
+      "author": "Harald Attila",
+      "source": "Unsplash",
+      "page": "https://unsplash.com/s/photos/traffic-intersection",
+      "image": "https://images.unsplash.com/photo-1544535031-b2fe56200d38",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "subject": "Gray concrete flyover road"
+    },
+    {
+      "file": "snap-08.jpg",
+      "author": "Oleksiy",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/31531448/",
+      "image": "https://images.pexels.com/photos/31531448/pexels-photo-31531448.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Long exposure of a city roundabout at night with light trails"
+    },
+    {
+      "file": "snap-09.jpg",
+      "author": "Introspectivedsgn",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/8913522/",
+      "image": "https://images.pexels.com/photos/8913522/pexels-photo-8913522.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a glowing street junction at night"
+    },
+    {
+      "file": "snap-10.jpg",
+      "author": "Chris F",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/39267068/",
+      "image": "https://images.pexels.com/photos/39267068/pexels-photo-39267068.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a snowy urban intersection in winter"
+    },
+    {
+      "file": "snap-11.jpg",
+      "author": "Tom Fisk",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/4062988/",
+      "image": "https://images.pexels.com/photos/4062988/pexels-photo-4062988.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of an illuminated night intersection"
+    },
+    {
+      "file": "snap-12.jpg",
+      "author": "Yurika",
+      "source": "Pexels",
+      "page": "https://www.pexels.com/photo/6039025/",
+      "image": "https://images.pexels.com/photos/6039025/pexels-photo-6039025.jpeg",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "subject": "Aerial view of a busy intersection in Tokyo"
+    }
+  ]
+}

@@ -81,6 +81,8 @@ def evaluate(root):
     verify_assets(root)
     detector = Detector(root / 'model')
     expected = json.loads((root / 'evaluation/expected.json').read_text(encoding='utf-8'))
+    from ps.configuration import load_config
+    config = load_config(root / 'config/default.json')
     results, maximum = {}, 0.0
     for name in sorted(expected):
         cases = json.loads((root / ('evaluation/' + name + '.json')).read_text(encoding='utf-8'))
@@ -93,10 +95,14 @@ def evaluate(root):
         maximum = max(maximum, float(np.max(abs(actual - reference))))
         metric = outcomes(cases, actual, 0.95, 0.0)
         compare(expected[name], metric, name)
+        historical = metric
+        metric = outcomes(cases, actual, config['detector']['threshold'], config['detector']['margin'])
         capture = actual.max(axis=1) >= 0.9
         labels = np.asarray([bool(case['label']) for case in cases])
-        results[name] = dict(scenes=len(cases), joint=metric,
+        results[name] = dict(scenes=len(cases), joint=metric, historical_joint=historical,
                              capture=dict(positive=int((capture & labels).sum()), negative=int((capture & ~labels).sum())))
     return dict(result='passed', model_tag=detector.metadata['model_tag'], protocols=results,
                 scenes=sum(row['scenes'] for row in results.values()), maximum_score_error=maximum,
-                scope='Recomputed classifier scores and metrics from frozen SRP/beam temporal features; replay examples separately cover PCM through events; no new road or hardware evidence')
+                operating_point=dict(threshold=config['detector']['threshold'], confirm=config['event']['confirm']),
+                historical_threshold=0.95, temporal_confirmation_evaluated=False,
+                scope='Current single-scene metrics and separately verified historical 0.95 metrics from frozen SRP/beam temporal features; replay examples separately cover PCM through events; no new road or hardware evidence')

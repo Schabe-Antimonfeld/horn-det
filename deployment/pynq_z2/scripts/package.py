@@ -33,12 +33,16 @@ def package(output):
     if output.exists() or output.suffix != '.zip':
         raise ValueError('Choose a fresh ZIP path')
     names = ['README.md', 'HANDOFF.md', 'BOARD_PERFORMANCE.md', 'CAMERA.md', 'DATA.md',
-             'run.py', 'reproduce.py', 'assets.json', 'pyproject.toml', 'uv.lock', '.python-version', '.gitattributes']
+             'run.py', 'web.py', 'reproduce.py', 'assets.json', 'pyproject.toml', 'uv.lock', '.python-version', '.gitattributes']
     for folder, pattern in [('ps', '*.py'), ('ps', '*.c'), ('scripts', '*.py'),
                             ('config', '*.json'), ('model', '*'), ('examples', '*'), ('evaluation', '*'), ('tests', '*.py')]:
         names.extend(path.relative_to(ROOT).as_posix() for path in sorted((ROOT / folder).glob(pattern)) if path.is_file())
     names = sorted(set(name for name in names if name not in ('tests/test_rtl.py', 'tests/test_srp.py')))
     content = {name: (ROOT / name).read_bytes() for name in names}
+    frontend = ROOT / 'frontend' if (ROOT / 'frontend').is_dir() else ROOT.parents[1] / 'frontend'
+    for name in ('index.html', 'app.js', 'README.md'):
+        content['frontend/' + name] = (frontend / name).read_bytes()
+    names = sorted(content)
     for name in names:
         if name.endswith('.md'):
             content[name] = content[name].decode('utf-8').replace('](../../docs/', '](https://github.com/Schabe-Antimonfeld/horn-det/blob/main/docs/').encode('utf-8')

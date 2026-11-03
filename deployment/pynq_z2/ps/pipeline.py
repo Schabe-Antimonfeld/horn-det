@@ -1,4 +1,4 @@
-"""Board-only candidate inference and conservative event/vehicle decisions."""
+"""Board-only acoustic inference, event confirmation and point-only camera output."""
 
 import time
 
@@ -6,7 +6,8 @@ import numpy as np
 
 from ps.dsp import beamform, candidates, features, spatial_map
 from ps.detector import FrontendOverflow
-from ps.geometry import AcousticEvidence, Association, Bearing, Detection, Rig, associate, route_cameras
+from ps.geometry import AcousticEvidence, Rig
+from ps.pointing import point_sources
 
 
 class Events:
@@ -64,7 +65,8 @@ class Pipeline:
         camera = dict(config['camera'])
         camera.pop('sources')
         self.rig = Rig(**camera)
-        self.captured = 0
+        self.horn_events = Events(config['event'], config['audio']['update_samples'])
+        self.capture_event, self.captured = 0, set()
 
     def analyze(self, snapshot):
         started = time.perf_counter()
@@ -130,6 +132,9 @@ class Pipeline:
                                       response=bearings[int(index)].response, score=scores[int(index)])
                                   for index in order if capture_candidate and scores[int(index)] >= capture_threshold]
         event = self.events.feed(capture_candidate, snapshot)
+        horn_event = self.horn_events.feed(audible, snapshot)
+        event.update(horn_event_state=horn_event['state'],
+                     horn_confirmed=bool(audible and self.horn_events.on >= self.config['event']['confirm']))
         event.update({'sample_first': snapshot['first'], 'sample_end_exclusive': snapshot['end'],
                       'epoch': snapshot['epoch'], 'score': score, 'score_margin': difference,
                       'horn_candidate': audible, 'doa_valid': valid,
@@ -152,72 +157,57 @@ class Pipeline:
             event['stream_diagnostics'] = dict(context, features=feature_metrics)
         return event, evidence
 
-    def capture(self, event, evidence, cache, vision, output, representative_time):
-        if event['state'] != 'CONFIRMED' or not event.get('capture_candidate', event['horn_candidate']) or event['event_id'] == self.captured:
+    def capture(self, event, evidence, cache, imaging, output, representative_time):
+        """Retain one provisional and one confirmed image per camera and event, without DNN inference."""
+        if (not event.get('capture_candidate', False) or not event.get('event_id')
+                or any(event.get(key, False) for key in ('input_clipped', 'activation_clipped', 'frontend_clipped'))):
             return None
+        if not np.isfinite(representative_time):
+            raise ValueError('Camera reference time must be finite')
+        if event['event_id'] != self.capture_event:
+            self.capture_event, self.captured = event['event_id'], set()
         started = time.perf_counter()
-        vision_seconds = 0.0
-        hypotheses = event.get('capture_candidates') or event.get('direction_candidates') or [dict(azimuth=event['azimuth'])]
-        routes = [route_cameras(self.rig, hypothesis['azimuth']) for hypothesis in hypotheses]
-        selected = sorted({identity for route in routes for identity in route})
-        detections, images = [], []
-        for identity in selected:
+        stage = 'confirmed' if event.get('horn_confirmed', False) else 'candidate'
+        hypotheses = event.get('capture_candidates') or event.get('direction_candidates') or []
+        projections = point_sources(self.rig, hypotheses)
+        selected = sorted(identity for identity, points in projections.items()
+                          if any(point['state'] != 'outside_camera_view' for point in points))
+        pending = [identity for identity in selected if (identity, stage) not in self.captured]
+        if selected and not pending:
+            return None
+        projected = any(point['state'] == 'projected' for points in projections.values() for point in points)
+        visibility = ('partly_outside_camera_view' if projected and any(
+            point['state'] == 'outside_camera_view' for points in projections.values() for point in points)
+            else 'candidate_in_nominal_or_calibrated_view' if projected
+            else 'projection_unresolved' if selected else 'outside_camera_view')
+        result = dict(selected_cameras=selected, projections=projections, photos=0, frames=[],
+                      stage=stage, horn_confirmed=event.get('horn_confirmed', False), visibility=visibility,
+                      vehicle_attribution='unverified',
+                      verification='Acoustic direction points only; no vehicle detection or unique vehicle attribution')
+        projection_done = time.perf_counter()
+        for identity in pending:
             frame = cache.nearest(identity, representative_time) if cache is not None else None
+            status = dict(camera=identity, state='unavailable')
+            result['frames'].append(status)
             if frame is None:
+                continue
+            skew = float(frame['time'] - representative_time)
+            status.update(skew_seconds=skew if np.isfinite(skew) else None,
+                          timing_verified=bool(frame.get('timing_verified', False)))
+            if not np.isfinite(skew) or abs(skew) > self.config['association']['maximum_skew']:
+                status['state'] = 'stale'
                 continue
             camera = next(item for item in self.rig.cameras() if item.identity == identity)
             if frame['image'].shape[:2] != (camera.height, camera.width):
                 raise ValueError('Captured image dimensions disagree with camera calibration')
-            step = time.perf_counter()
-            boxes = vision.infer(frame['image'])
-            vision_seconds += time.perf_counter() - step
-            for box in boxes:
-                left, top, right, bottom = box['box']
-                box['identity'] = 'observation-' + str(len(detections))
-                detections.append(Detection(box['identity'], identity, tuple(box['box']),
-                                            ((left + right) / 2, bottom), frame['time']))
-            images.append((identity, frame, boxes))
-        camera_done = time.perf_counter()
-        comparisons = []
-        for hypothesis in hypotheses:
-            support = evidence
-            if evidence is not None and 'depression' in hypothesis:
-                support = AcousticEvidence(Bearing(hypothesis['azimuth'], hypothesis['depression'], hypothesis['response']), evidence.grid)
-            comparisons.append(associate(self.rig, hypothesis['azimuth'], representative_time, detections,
-                                          Association(**self.config['association']), evidence=support))
-        result = dict(comparisons[0])
-        if len(comparisons) > 1:
-            groups = {}
-            for comparison in comparisons:
-                for group in comparison['groups']:
-                    groups[tuple(sorted(item['identity'] for item in group))] = group
-            result['groups'] = list(groups.values())
-            accepted = {item['identity'] for group in result['groups'] for item in group}
-            rejected = {item['identity']: item for comparison in comparisons for item in comparison['rejected']
-                        if item['identity'] not in accepted}
-            result['rejected'] = list(rejected.values())
-            result['state'] = 'ambiguous' if groups else 'unmatched'
-            result['source_unexplained'] = any(comparison['source_unexplained'] for comparison in comparisons)
-            result['acoustic_hypotheses'] = comparisons
-        if result['groups']:
-            result['state'] = 'ambiguous'
-        result['evidence_level'] = ('capture_only' if not event['horn_candidate'] else 'direction_selected'
-                                    if event.get('doa_valid') else 'direction_ambiguous')
-        result['verification'] = 'unverified timing/calibration and heuristic box-bottom anchors; no unique vehicle attribution'
-        if not event['horn_candidate']:
-            result['verification'] = 'low-score capture candidate; horn presence unconfirmed; ' + result['verification']
-        association_done = time.perf_counter()
-        for identity, frame, boxes in images:
-            name = 'event-{}-{}'.format(event['event_id'], identity)
+            name = 'event-{}-{}-{}'.format(event['event_id'], identity, stage)
             (output / (name + '.jpg')).write_bytes(frame['jpeg'])
-            vision.annotate(frame['image'], boxes, result, output / (name + '-annotated.jpg'))
-        if images:
-            self.captured = event['event_id']
+            imaging.annotate(frame['image'], projections[identity], result, output / (name + '-points.jpg'))
+            status.update(state='saved', original=name + '.jpg', annotated=name + '-points.jpg')
+            self.captured.add((identity, stage))
+            result['photos'] += 1
         finished = time.perf_counter()
-        return {'selected_cameras': selected, 'association': result, 'photos': len(images),
-                'processing_seconds': finished - started,
-                'phase_seconds': dict(camera_and_routing=camera_done - started - vision_seconds,
-                                      vision=vision_seconds, association=association_done - camera_done,
-                                      save_and_annotation=finished - association_done),
-                'visibility': ('partly_outside_camera_view' if selected and any(not route for route in routes)
-                               else 'candidate_in_nominal_or_calibrated_view' if selected else 'outside_camera_view')}
+        result.update(processing_seconds=finished - started,
+                      phase_seconds=dict(projection=projection_done - started,
+                                         camera_and_save=finished - projection_done, vision=0.0))
+        return result

@@ -1,6 +1,7 @@
 """Standalone board service or deterministic PCM replay; no PC prototype imports."""
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -19,7 +20,7 @@ from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
 from ps.configuration import ROOT, load_config
 from ps.detector import Detector, validate_backend, validate_model
 from ps.pipeline import Pipeline
-from ps.vision import CameraCache, Vision
+from ps.vision import CameraCache, ImageIO
 
 
 def resolve(value):
@@ -46,6 +47,22 @@ def replay(path, settings, conditioning):
                 yield snapshot
 
 
+def publish_preview(cache, output, previous, timestamp):
+    """Publish only fresh, already encoded camera bytes with atomic file replacement."""
+    frame = cache.latest('wide-0')
+    sequence = (frame or {}).get('time')
+    if not frame or sequence == previous or not 0 <= time.monotonic() - frame['time'] <= 3:
+        return previous
+    temporary = output / 'preview.tmp'
+    temporary.write_bytes(frame['jpeg'])
+    os.replace(str(temporary), str(output / 'preview.jpg'))
+    record = dict(sequence=sequence, published_unix=time.time(), timestamp=timestamp, timing_verified=False)
+    temporary = output / 'preview-meta.tmp'
+    temporary.write_text(json.dumps(record), encoding='utf-8')
+    os.replace(str(temporary), str(output / 'preview.json'))
+    return sequence
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config')
@@ -55,8 +72,15 @@ def main(argv=None):
     parser.add_argument('--output-root')
     parser.add_argument('--limit', type=int, default=0)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--stop-file')
+    parser.add_argument('--heartbeat')
+    parser.add_argument('--realtime', action='store_true')
+    parser.add_argument('--preview', action='store_true')
     args = parser.parse_args(argv)
     config = load_config(args.config)
+    def stopping():
+        return bool((args.stop_file and Path(args.stop_file).exists()) or
+                    (args.heartbeat and (not Path(args.heartbeat).exists() or time.time() - Path(args.heartbeat).stat().st_mtime > 10)))
     if args.replay and config['vision']['enabled']:
         raise ValueError('Historical audio cannot be matched to live camera images; disable vision for WAV replay')
     if args.replay and config['search'].get('backend', 'numpy') == 'fpga':
@@ -121,18 +145,23 @@ def main(argv=None):
             snapshots = live_snapshots()
         vision = None
         if config['vision']['enabled']:
-            settings = dict(config['vision'])
-            settings['model'] = str(resolve(settings['model']))
-            if settings['configuration']:
-                settings['configuration'] = str(resolve(settings['configuration']))
-            vision = Vision(settings)
+            vision = ImageIO()
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
         pipeline = Pipeline(config, detector, processing=processing)
         clock_origin, clock_epoch = None, None
+        replay_started = time.monotonic()
+        preview_sequence = None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:
             for snapshot in snapshots:
+                if args.replay and args.realtime:
+                    deadline = replay_started + snapshot['end'] / float(config['audio']['sample_rate'])
+                    while not stopping() and time.monotonic() < deadline:
+                        time.sleep(min(0.05, max(0, deadline - time.monotonic())))
+                if stopping():
+                    status = 'stopped'
+                    break
                 if clock_origin is None or clock_epoch != snapshot['epoch']:
                     clock_origin = time.monotonic() - snapshot['end'] / float(config['audio']['sample_rate'])
                     clock_epoch = snapshot['epoch']
@@ -140,10 +169,14 @@ def main(argv=None):
                 event, evidence = pipeline.analyze(snapshot)
                 if 'conditioning' in snapshot:
                     event['conditioning'] = snapshot['conditioning']
+                event['recorded_at'] = datetime.now(timezone.utc).isoformat()
+                event['source_mode'] = 'replay' if args.replay else 'live'
                 event['clock_kind'] = 'replay_sample_clock' if args.replay else 'unverified_host_clock'
                 if vision is not None:
                     event['capture'] = pipeline.capture(event, evidence, camera_cache, vision, output, representative)
                     event['camera_health'] = camera_cache.health()
+                    if args.preview:
+                        preview_sequence = publish_preview(camera_cache, output, preview_sequence, event['recorded_at'])
                 event['skipped_windows'] = pump.skipped if pump else 0
                 event['capture_gaps'] = pump.gaps if pump else 0
                 stream.write(json.dumps(event, allow_nan=False) + '\n')
@@ -154,7 +187,8 @@ def main(argv=None):
                                                                'capture_gaps': event['capture_gaps']}), encoding='utf-8')
                 if args.limit and processed >= args.limit:
                     break
-        status = 'completed'
+        if status != 'stopped':
+            status = 'completed'
         return 0
     except KeyboardInterrupt:
         status = 'stopped'

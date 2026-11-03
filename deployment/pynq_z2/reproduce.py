@@ -39,7 +39,18 @@ def reproduce(output, compiler=None, libraries=None):
         directory = output / Path(name).stem
         run(['--config', str(configuration), '--replay', str(ROOT / 'examples' / name), '--output', str(directory)])
         rows = [json.loads(line) for line in (directory / 'events.jsonl').read_text(encoding='utf-8').splitlines()]
-        compare(reference, rows, name)
+        frozen = [{key: value for key, value in row.items() if key not in ('state', 'direction_threshold')}
+                  for row in reference]
+        compare(frozen, rows, name)
+        for row in rows:
+            if row['direction_threshold'] != config['detector']['threshold']:
+                raise ValueError('Replay direction threshold disagrees with configuration')
+            if row['capture_candidate'] and row['state'] != 'CONFIRMED':
+                raise ValueError('Single-window candidate did not confirm immediately')
+            expected_horn = bool(not any(row[key] for key in ('input_clipped', 'activation_clipped', 'frontend_clipped'))
+                                 and row['score'] >= config['detector']['threshold'])
+            if row['horn_confirmed'] != expected_horn:
+                raise ValueError('Single-window horn confirmation mismatch')
         elapsed = [row['processing_seconds'] for row in rows]
         replays[name] = dict(windows=len(rows), states=[row['state'] for row in rows],
                              median_seconds=float(np.median(elapsed)), maximum_seconds=float(max(elapsed)),
@@ -47,6 +58,8 @@ def reproduce(output, compiler=None, libraries=None):
     result = dict(result='passed', machine=platform.machine(), python=sys.version, numpy=np.__version__,
                   model_tag=405187002, assets_sha256=hashlib.sha256((ROOT / 'assets.json').read_bytes()).hexdigest(),
                   builds=reports, replay=replays, evaluation=evaluate(ROOT), board_validated=False,
+                  operating_point=dict(threshold=config['detector']['threshold'], confirm=config['event']['confirm']),
+                  replay_comparison='Frozen numerical and direction evidence; former state/threshold fields replaced by explicit single-window checks',
                   scope='Fixed-weight reproduction only; timing belongs to the current host, excludes collection wait and vision')
     (output / 'report.json').write_text(json.dumps(result, indent=2, allow_nan=False) + '\n', encoding='utf-8')
     return result

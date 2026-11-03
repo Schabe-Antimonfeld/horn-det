@@ -1,9 +1,7 @@
-"""Optional OpenCV model adapter; no dependency install or model download occurs."""
+"""Optional OpenCV camera I/O and acoustic point annotation; no neural network."""
 
 from collections import deque
-import hashlib
 import multiprocessing
-from pathlib import Path
 from queue import Empty, Full
 import threading
 import time
@@ -109,78 +107,34 @@ def usb_worker(source, messages, stopped):
             camera.close()
 
 
-def decode_boxes(raw, width, height, settings):
-    values = np.asarray(raw, dtype=float)
-    if values.ndim != 2 or values.shape[1] < 6 or not np.isfinite(values).all():
-        raise ValueError('Model must emit finite decoded rows: cx,cy,w,h,objectness,class scores')
-    if np.any(values[:, 4:] < 0) or np.any(values[:, 4:] > 1):
-        raise ValueError('Model must emit probabilities, not unprocessed logits')
-    labels = np.argmax(values[:, 5:], axis=1)
-    scores = values[:, 4] * values[np.arange(len(values)), labels + 5]
-    selected = (scores >= settings['threshold']) & np.isin(labels, settings['classes'])
-    boxes = []
-    for row, label, score in zip(values[selected], labels[selected], scores[selected]):
-        if np.any(row[:2] < 0) or np.any(row[:2] > 1) or np.any(row[2:4] <= 0) or np.any(row[2:4] > 2):
-            raise ValueError('Decoded coordinates must use normalized image units')
-        first = np.maximum(0, (row[:2] - row[2:4] / 2) * [width, height])
-        final = np.minimum([width, height], (row[:2] + row[2:4] / 2) * [width, height])
-        if np.all(final > first):
-            boxes.append({'box': list(np.r_[first, final]), 'class': int(label), 'score': float(score)})
-    kept = []
-    for box in sorted(boxes, key=lambda item: -item['score']):
-        a = np.asarray(box['box'])
-        overlap = False
-        for previous in kept:
-            if box['class'] != previous['class']:
-                continue
-            b = np.asarray(previous['box'])
-            intersection = np.prod(np.maximum(0, np.minimum(a[2:], b[2:]) - np.maximum(a[:2], b[:2])))
-            union = np.prod(a[2:] - a[:2]) + np.prod(b[2:] - b[:2]) - intersection
-            if intersection / union > settings['nms']:
-                overlap = True
-                break
-        if not overlap:
-            kept.append(box)
-    return kept
+class ImageIO:
+    """Decode camera images and draw only acoustic candidate points."""
 
-
-class Vision:
-    def __init__(self, settings):
+    def __init__(self):
         try:
             import cv2
         except ImportError:
-            raise RuntimeError('OpenCV is not installed; install a board-compatible runtime after approval')
-        model = Path(settings['model'])
-        if not settings['sha256'] or hashlib.sha256(model.read_bytes()).hexdigest() != settings['sha256']:
-            raise ValueError('Vision model must match an explicitly approved checksum')
-        self.cv2, self.settings = cv2, settings
-        self.network = cv2.dnn.readNet(str(model), settings['configuration'])
-        self.network.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        self.network.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+            raise RuntimeError('OpenCV is not installed; use the approved board-compatible image runtime')
+        self.cv2 = cv2
 
-    def infer(self, image):
-        cv2 = self.cv2
-        blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (self.settings['input_size'],) * 2,
-                                   swapRB=self.settings['pixel_order'] == 'RGB', crop=False)
-        self.network.setInput(blob)
-        names = self.network.getUnconnectedOutLayersNames()
-        outputs = self.network.forward(names)
-        raw = np.concatenate([np.asarray(value).reshape(-1, np.asarray(value).shape[-1]) for value in outputs])
-        return decode_boxes(raw, image.shape[1], image.shape[0], self.settings)
-
-    def annotate(self, image, boxes, result, path):
+    def annotate(self, image, points, result, path):
         output = image.copy()
-        accepted = {item['identity'] for group in result['groups'] for item in group}
-        for box in boxes:
-            left, top, right, bottom = [int(value) for value in box['box']]
-            candidate = box.get('identity') in accepted
-            self.cv2.rectangle(output, (left, top), (right, bottom), (0, 180, 255) if candidate else (160, 160, 160), 2)
-            self.cv2.putText(output, 'possible source' if candidate else 'vehicle', (left, max(15, top - 5)),
-                             self.cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 180, 255) if candidate else (160, 160, 160), 1)
-        self.cv2.putText(output, result['state'] + ': candidates, attribution unverified',
-                         (10, 25), self.cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        confirmed = result['horn_confirmed']
+        color = (60, 220, 60) if confirmed else (0, 180, 255)
+        for point in points:
+            if point['state'] != 'projected':
+                continue
+            pixel = tuple(int(round(value)) for value in point['pixel'])
+            pixel = (min(image.shape[1] - 1, pixel[0]), min(image.shape[0] - 1, pixel[1]))
+            self.cv2.circle(output, pixel, 7, color, -1)
+            self.cv2.putText(output, 'source candidate ' + str(point['candidate'] + 1),
+                             (max(0, pixel[0] - 75), max(18, pixel[1] - 12)),
+                             self.cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        label = 'horn evidence confirmed' if confirmed else 'UNCONFIRMED acoustic candidate'
+        self.cv2.putText(output, label + '; timing/calibration and vehicle attribution unverified',
+                         (10, 25), self.cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
         if not self.cv2.imwrite(str(path), output):
-            raise RuntimeError('Failed to save annotated image')
+            raise RuntimeError('Failed to save point-annotated image')
 
 
 class CameraCache:
@@ -266,6 +220,12 @@ class CameraCache:
             if frame['image'] is None:
                 raise ValueError('Cached USB JPEG cannot be decoded')
         return frame
+
+    def latest(self, identity):
+        """Return the existing encoded frame without decoding or opening another camera."""
+        with self.lock:
+            frames = self.history.get(identity)
+            return dict(frames[-1]) if frames else None
 
     def health(self):
         with self.lock:

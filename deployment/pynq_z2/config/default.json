@@ -30,7 +30,7 @@
     "cache_size": 64
   },
   "detector": {
-    "threshold": 0.95,
+    "threshold": 0.9,
     "capture_threshold": 0.9,
     "margin": 0.0,
     "model_tag": 405187002,
@@ -38,7 +38,7 @@
     "backend": "spectral"
   },
   "event": {
-    "confirm": 2,
+    "confirm": 1,
     "release": 2
   },
   "camera": {
@@ -98,20 +98,7 @@
   },
   "vision": {
     "enabled": false,
-    "model": "",
-    "configuration": "",
-    "sha256": "",
-    "input_size": 320,
-    "threshold": 0.5,
-    "nms": 0.45,
-    "classes": [
-      2,
-      3,
-      5,
-      7
-    ],
-    "pixel_order": "RGB",
-    "output": "yolo_xywh_classes"
+    "output": "acoustic_points"
   },
   "streaming": {
     "enabled": true

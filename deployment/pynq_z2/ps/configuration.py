@@ -112,10 +112,10 @@ def validate_config(config):
         if values is not None and (len(values) != 14 or not all(math.isfinite(value) for value in values)
                                    or (key == 'gains' and min(values) <= 0)):
             raise ValueError('Calibration needs 14 finite gains/delays and positive gains')
-    if config['vision']['output'] != 'yolo_xywh_classes':
-        raise ValueError('Only explicitly described YOLO decoded outputs are supported')
-    if config['vision']['input_size'] <= 0 or not all(0 <= config['vision'][key] <= 1 for key in ('threshold', 'nms')):
-        raise ValueError('Invalid vision dimensions or gates')
+    if set(config['vision']) != {'enabled', 'output'} or config['vision']['output'] != 'acoustic_points':
+        raise ValueError('Camera output must be acoustic_points, without a vehicle model')
+    if type(config['vision']['enabled']) is not bool:
+        raise ValueError('Camera enable flag must be boolean')
     from ps.geometry import Association, Rig
     geometry = dict(camera)
     geometry.pop('sources')
