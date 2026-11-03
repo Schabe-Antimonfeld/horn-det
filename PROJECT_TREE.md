@@ -1,61 +1,26 @@
-# 项目目录
+# 最新主线目录
 
 ```text
 horn-det/
-├── AGENTS.md
-├── README.md
-├── CHANGELOG.md
-├── PROJECT_TREE.md
-├── docs/
-│   ├── README.md
-│   ├── 01_项目总体方案.md
-│   ├── 02_阵列几何与远场声学模型.md
-│   ├── 03_STFT与频域前端.md
-│   ├── 04_GCC_PHAT完整推导.md
-│   ├── 05_SRP_PHAT完整推导.md
-│   ├── 06_粗到细搜索与动态剪枝.md
-│   ├── 07_鸣笛检测_LogMel_TinyCNN.md
-│   ├── 08_HornAware_SRP工程化方案.md
-│   ├── 09_FPGA模块划分与定点实现.md
-│   ├── 10_相机控制接口.md
-│   ├── 11_无法自采数据时的数据方案.md
-│   ├── 12_实验设计与评价指标.md
-│   └── 13_文献来源映射与复现边界.md
-├── prototype/
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   ├── README.md
-│   ├── main.py
-│   ├── simulate_surround.py
-│   ├── improve_detector.py
-│   ├── profiles/gc2093_single.json
-│   ├── profiles/horn_recovery.json
-│   ├── src/horn/
-│   └── tests/
-├── fpga/
-│   ├── README.md
-│   ├── cnn.py
-│   ├── cnn_host.py
-│   ├── rtl/
-│   ├── sim/
-│   ├── scripts/
-│   └── constraints/
-├── deployment/pynq_z2/
-│   ├── README.md
-│   ├── HANDOFF.md
-│   ├── CAMERA.md
-│   ├── run.py
-│   ├── config/
-│   ├── ps/
-│   ├── rtl/
-│   ├── scripts/
-│   └── tests/
-└── references/
-    ├── README.md
-    ├── references.bib
-    └── *.url
+├── README.md / CHANGELOG.md / AGENTS.md
+├── docs/                      原理与技术记录
+├── references/                文献与来源
+├── fpga/                      最新采集、Tiny CNN及构建源码
+├── deployment/pynq_z2/         唯一算法实现与板端接口
+│   ├── README.md / DATA.md / HANDOFF.md / BOARD_PERFORMANCE.md
+│   ├── run.py                 PCM回放或板端服务
+│   ├── reproduce.py           编译、自检、回放、评测
+│   ├── pyproject.toml / uv.lock
+│   ├── config/default.json    唯一默认配置
+│   ├── model/                 唯一固定权重与manifest
+│   ├── examples/              PCM样例、预期事件与来源
+│   ├── evaluation/            四套冻结特征、真值与许可
+│   ├── assets.json            固定资产SHA-256
+│   ├── ps/                    最新Python算法和四个C核
+│   ├── scripts/               编译、评测、打包及硬件联调工具
+│   ├── rtl/                   可选SRP协议硬件
+│   └── tests/                 当前实现及协议测试
+└── prototype/README.md        归档指引
 ```
 
-`prototype/src/horn/surround.py` 为多相机几何及声画关联原型，`prototype/tests/test_surround.py` 包含解析测试。`prototype/outputs/surround_v2/` 为当前被忽略的本地仿真产物目录，保存配置、覆盖扫描、逐场景结果及合成框标注SVG；v1保留旧结果。产物不包含真实照片或重新训练的模型。
-
-`prototype/src/horn/recovery.py` 固定双协议、PCM合同和验证门限选择；`improve_detector.py` 生成独立的 `prototype/outputs/horn_recovery_v1/`，包含训练/评测、Tiny整数模型、BandMLP模型、冻结记录和源码运行包。这些训练及派生产物不入Git，旧 `horn_detector_v1/` 保持只读。
+历史研究代码和旧配置在codex/archive-2026-11-03分支，不在main形成多个可选版本。本地旧实验产物、原始数据和环境被忽略且保留。算法ZIP只包含当前算法、模型、配置、复现资产、测试和环境说明，不含RTL或依赖旧outputs；硬件源码仍在主仓库。

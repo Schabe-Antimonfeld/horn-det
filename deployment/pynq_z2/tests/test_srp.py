@@ -202,38 +202,26 @@ def test_batched_rtl_matches_exact_python_packets(tmp_path):
     assert [bool(word >> 32) for word in received] == endings
 
 
-def test_live_entry_selects_srp_dma_and_closes_resources(tmp_path, monkeypatch):
-    model = ROOT.parents[1] / 'prototype/outputs/horn_detector_v1/fpga_model'
-    if not model.is_dir():
-        pytest.skip('Local trained model absent')
-    specification = importlib.util.spec_from_file_location('live_srp_service', ROOT / 'run.py')
+def test_live_entry_uses_latest_ps_model_and_closes_capture(tmp_path, monkeypatch):
+    specification = importlib.util.spec_from_file_location('live_service', ROOT / 'run.py')
     service = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(service)
     config = load_config()
-    config['search']['backend'] = 'fpga'
     config['hardware']['overlay'] = str(tmp_path / 'test.bit')
     (tmp_path / 'test.bit').write_bytes(b'not-real-firmware')
     (tmp_path / 'test.hwh').write_text('test-only')
-    config_path = tmp_path / 'config.json'
-    config_path.write_text(json.dumps(config))
-    dma, buffers, closed = FakeDma(), [], []
-    def allocate(shape, dtype):
-        buffer = np.zeros(shape, dtype=dtype).view(Buffer)
-        buffer.freed = False
-        buffers.append(buffer)
-        return buffer
-    monkeypatch.setitem(sys.modules, 'pynq', SimpleNamespace(
-        Overlay=lambda path: SimpleNamespace(srp_dma=dma), allocate=allocate))
-    monkeypatch.setattr(service, 'cnn_client', lambda: lambda *args: SimpleNamespace(close=lambda: closed.append('cnn')))
+    path = tmp_path / 'config.json'
+    path.write_text(json.dumps(config))
+    closed = []
+    monkeypatch.setitem(sys.modules, 'pynq', SimpleNamespace(Overlay=lambda path: SimpleNamespace(), allocate=lambda **kwargs: None))
     monkeypatch.setattr(service, 'CaptureDevice', lambda *args: SimpleNamespace())
-    snapshot = {'audio': np.zeros((48128, 14)), 'first': 0, 'end': 48128, 'epoch': 0, 'clipped': False}
+    snapshot = dict(audio=np.zeros((48128,14)), first=0, end=48128, epoch=0, clipped=False)
     pump = SimpleNamespace(thread=SimpleNamespace(start=lambda: None), receive=lambda: snapshot,
                            close=lambda: closed.append('capture'), gaps=0, skipped=0)
     monkeypatch.setattr(service, 'CapturePump', lambda *args: pump)
     output = tmp_path / 'events'
-    assert service.main(['--model', str(model), '--config', str(config_path),
-                         '--output', str(output), '--limit', '1']) == 0
-    event = json.loads((output / 'events.jsonl').read_text())
-    assert event['srp_backend'] == 'fpga' and event['state'] == 'IDLE'
-    assert dma.transfers == 44 and dma.reset and all(buffer.freed for buffer in buffers)
-    assert closed == ['capture', 'cnn']
+    assert service.main(['--config',str(path),'--output',str(output),'--limit','1']) == 0
+    event = json.loads((output/'events.jsonl').read_text())
+    assert event['srp_backend'] == 'numpy' and event['srp_diagnostics']['implementation'] == 'native'
+    assert event['classifier'] == 'BandTemporalMLP-30866' and event['state'] == 'IDLE'
+    assert closed == ['capture']

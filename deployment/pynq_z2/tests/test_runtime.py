@@ -33,7 +33,7 @@ def test_contract_rejects_incompatible_settings(section, key, value):
         validate_config(config)
 
 
-@pytest.mark.parametrize('capture', [-0.01, 0.66, float('nan'), float('inf'), True, None, '0.5'])
+@pytest.mark.parametrize('capture', [-0.01, 1.0, float('nan'), float('inf'), True, None, '0.5'])
 def test_capture_threshold_rejects_invalid_or_stricter_gates(capture):
     config = load_config()
     config['detector']['capture_threshold'] = capture
@@ -44,7 +44,7 @@ def test_capture_threshold_rejects_invalid_or_stricter_gates(capture):
 @pytest.mark.parametrize('capture', [0, 0.5, 0.65])
 def test_optional_capture_threshold_leaves_direction_gate_unchanged(capture):
     config = load_config()
-    assert 'capture_threshold' not in config['detector']
+    assert config['detector']['capture_threshold'] == 0.9
     original = dict(config['detector'])
     config['detector']['capture_threshold'] = capture
     validate_config(config)

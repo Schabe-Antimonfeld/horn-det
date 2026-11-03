@@ -1,4 +1,4 @@
-"""Generated geometry; regenerate with scripts/export_geometry.py."""
+"""Camera geometry and conservative acoustic/vehicle association."""
 
 import numpy as np
 

@@ -1,8 +1,12 @@
 outputs/
 build/
-model/
 vendor/
 __pycache__/
 .pytest_cache/
 *.bit
 *.hwh
+.venv/
+*.dll
+*.so
+*.dll.json
+*.so.json

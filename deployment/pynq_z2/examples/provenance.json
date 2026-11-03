@@ -1,0 +1,65 @@
+{
+  "source_split": "validation-original",
+  "case_index": 98,
+  "case": {
+    "id": 98,
+    "pair": 49,
+    "split": "validation",
+    "protocol": "original",
+    "target": "4-175855-A-43.wav",
+    "interferer": "4-111671-A-42.wav",
+    "dataset": "ESC50",
+    "label": 1,
+    "angle": 179,
+    "other": -60,
+    "radius": 8.0,
+    "sir_db": -5.0,
+    "target_rms": 0.025,
+    "noise_seed": 20261119,
+    "visual_seed": 20361119,
+    "rotation": 0.0,
+    "occluded": false,
+    "bearings": [
+      {
+        "azimuth": -180.0,
+        "depression": 33.0,
+        "response": 12.600895544631001
+      },
+      {
+        "azimuth": -60.0,
+        "depression": 24.0,
+        "response": 8.356204953981521
+      }
+    ],
+    "pcm": {
+      "gain": 0.024999263122533057,
+      "requested_gain": 0.024999263122533057,
+      "headroom_limited": false,
+      "target_rms_requested": 0.025,
+      "target_rms_actual": 0.025,
+      "peak": 0.206787109375,
+      "mixture_rms": 0.051003985529236406,
+      "clipped_samples": 0,
+      "pcm_sha256": "de1b33f059ed9f62fcbe4e464dc4e9e7eb686943a80f025aeff282cf36b06d79"
+    },
+    "visible": false,
+    "target_crop": 0,
+    "interferer_crop": 0,
+    "augmented": false,
+    "processing_seconds": 0.19983100000172271,
+    "points": [
+      [
+        -7.99878156125113,
+        0.1396192514982675
+      ],
+      [
+        5.500000000000001,
+        -9.526279441628825
+      ]
+    ]
+  },
+  "source_pcm_sha256": "de1b33f059ed9f62fcbe4e464dc4e9e7eb686943a80f025aeff282cf36b06d79",
+  "output_sha256": "95f83f7c7f85d9fe2fb278013cdf73b8ec6ff6f43338eb9fc903d66fb6fcb52f",
+  "construction": "three repeated copies of the unconditioned public-recording synthetic array scene",
+  "scope": "positive event implementation check; repeated windows are not independent road evidence"
+}

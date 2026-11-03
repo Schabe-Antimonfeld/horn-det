@@ -5,10 +5,21 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ps.configuration import load_config
+from ps.configuration import load_config as load_current
 from ps.pipeline import Events, Pipeline
 from ps.vision import decode_boxes
 from ps.geometry import Bearing
+
+
+def load_config():
+    """Construct injected event-gate scenarios independently of native processing."""
+    config = load_current()
+    for name in ('streaming', 'refinement', 'beamforming'):
+        config.pop(name)
+    config['search']['algorithm'] = 'reference'
+    config['detector'].update(threshold=0.65, margin=0.05)
+    config['detector'].pop('capture_threshold')
+    return config
 
 
 def test_event_confirmation_and_skipped_windows_reset_evidence():

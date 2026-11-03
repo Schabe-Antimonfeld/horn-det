@@ -1,38 +1,23 @@
-# FPGA Horn Project
+# 鸣笛检测与定位
 
-`legacy`分支冻结广角适配前的`1f11b16`版本；`main`推进单颗GC2093 USB广角摄像头方案。主线默认单摄像头配置，144°水平/77.6°垂直为厂商标称，不能覆盖360°。真实视觉需加载实测畸变标定；14路声学和可选SRP加速保持原实现。
+main保存项目各部分的最新有效内容：14路阵列采集、最新时间频带MLP算法、单颗GC2093广角相机几何与保守车辆关联。算法只保留一个运行入口、一份配置和一套固定权重。
 
-相机参数、USB/标定工具、仿真和待验收项见[广角适配说明](deployment/pynq_z2/CAMERA.md)。历史58场景还存在混合幅度超出PCM约定的问题；当前已修复幅度与随机流，并完成两种协议的冻结比较。保留频带位置的7826参数BandMLP可选PS NumPy后端，联合F1为0.569/0.565，负例接受2/84、3/84；旧Tiny CNN约0.35，重训Tiny约0.18～0.21，后者不提升为默认。PANNs约0.73但误接受更多，仅作PC对照。上述均为复用公开录音的合成阵列/相机测试，仍不能作为道路或板端可用证明，详见[评价记录](docs/12_实验设计与评价指标.md)。
+- [最新版算法与复现](deployment/pynq_z2/README.md)：源码、C核、固定模型、示例回放、672场景冻结特征评测、测试和uv锁文件。
+- [FPGA采集与RTL](fpga/README.md)：保留最新采集、DMA、Tiny CNN和可选SRP协议源码；当前时间MLP在ARM上运行。
+- [技术文档](docs/README.md)：原理、方案记录、评价边界和参考文献。
+- [交接与未完成项](deployment/pynq_z2/HANDOFF.md)、[Changelog](CHANGELOG.md)。
 
-- [CHANGELOG.md](CHANGELOG.md)：功能、修复、验证进展与待确定事项。
-- `docs/`：分模块技术文档。
-- `references/`：参考文献说明与原 PDF 公开下载快捷方式。
-- `prototype/`：使用 uv 的 Python 算法原型、测试和执行说明，覆盖进度见 [原型说明](prototype/README.md)。
+整理前完整源码已归档到分支`codex/archive-2026-11-03`（a8cda7b），旧配置、模型方案、训练及实验入口由该分支保留；`legacy`继续保存更早的多相机版本。本地被忽略的数据、输出和环境仍保留，Git分支不包含这些未跟踪资产。主线固定模型、样例与评测缓存现在随源码交付。
 
-当前项目主线：
+在`deployment/pynq_z2/`执行：
 
 ```text
-Tiny CNN Horn Detection
-+
-GCC-PHAT / SRP-PHAT
-+
-Horn-aware frequency weighting
-+
-coarse-to-fine DOA
-+
-FPGA streaming implementation
-+
-USB wide-angle camera capture / spatial association
+uv sync --frozen
+uv run --frozen python reproduce.py --output outputs/reproduction
+uv run --frozen pytest
+uv run --frozen python scripts/package.py --output outputs/horn_algorithm.zip
 ```
 
-新增可调多相机研究原型：360°高位声学候选与 PANNs、环形相机＋下视相机、地面投影及车辆方向关联。系统参数包括相机数量、安装高度、向下俯角和视场角，见[第 10 章](docs/10_相机控制接口.md)及[运行说明](prototype/README.md)。该扩展不改变上述参考基线的默认参数和旧接口。
+需要Python3.12、uv及已有GCC；首次依赖同步需网络或缓存。Windows可给复现命令追加`--compiler D:/MinGW/bin/gcc.exe`。包内不含编译器、虚拟环境、开发机DLL、bit/hwh或视觉权重。
 
-研究原型中的车辆框由仿真生成；部署版已有USB/HTTP采集和可选视觉适配，但尚未接入实际相机或已验收的车辆模型。唯一几何匹配不能单独证明车辆鸣笛。
-
-当前关联默认验证声源俯角及鸣笛候选的 SRP 支持，缺证据拒绝、宽峰保留歧义；只看水平角保留为对照。默认仿真结果在本地 `prototype/outputs/surround_v2/`，固定小样本对照摘要见[第 12 章](docs/12_实验设计与评价指标.md)。真实音频、已训练权重和生成报告被忽略，不随 Git 仓库发布。
-
-已有[14路PDM采集及Tiny CNN整数推理RTL](fpga/README.md)，通过本地功能仿真；PANNs研究模型在PC运行，Tiny CNN内核不支持直接部署PANNs。PS多相机源码见下方独立部署目录；Vivado综合、时序和实际板上闭环尚待验收。
-
-新增[PYNQ-Z2独立部署源码](deployment/pynq_z2/README.md)：PL采集/Tiny CNN与PS NumPy声学、事件、可选BandMLP及相机适配，含独立打包和校验；可选批量SRP插值累加已接入部署构建和Python DMA后端，默认保持NumPy，收益待板上测试。当前Vivado2019.2缺XC7Z020器件支持，未生成可用bitstream；真实相机/视觉模型、时钟和标定等剩余事项列在[合作者交接](deployment/pynq_z2/HANDOFF.md)。该路径不在板端运行PANNs，不将PC结果等同于板端效果。
-
-最新可选板端源码配置为`deployment/pynq_z2/config/band_refined.json`：在连续窗口与buffered Conditioning之上融合Hann/折叠FFT输入，并独立复用每个稳定候选波束。使用原时间组合模型、方向/抓拍门限0.95/0.90和完整网格，不新增PL核；目标机须编译四个C库。旧配置保留，500 ms目标仍待本轮ARM实测，入口及对照方法见[部署说明](deployment/pynq_z2/README.md)和[验收说明](deployment/pynq_z2/BOARD_PERFORMANCE.md)。
+固定权重复现覆盖PCM样例至事件及冻结特征至评测指标，不包含重新训练或完整原数据重建。公开来源仍按科研/非商业范围使用，来源和许可见[数据说明](deployment/pynq_z2/DATA.md)。仿真与电脑测试不等于道路或ARM验收，500 ms目标仍待实机验证；画外、遮挡及同方向多车继续保留歧义。

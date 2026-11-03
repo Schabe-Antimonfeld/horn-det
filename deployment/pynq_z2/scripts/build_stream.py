@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 def check(destination):
     import numpy as np
-    from ps.streaming import Runtime, StreamConditioning
+    from ps.streaming import Runtime
     from ps.dsp import Conditioning
     runtime = Runtime(destination)
     rng = np.random.RandomState(37)
@@ -43,14 +43,9 @@ def check(destination):
         shifted, _ = runtime.fused(values[17:], pairs, precision, cached, 12, 12)
         np.testing.assert_array_equal(shifted, runtime.reduce(actual[:0], actual[5:], precision))
         errors[precision] = float(np.max(abs(actual - expected)))
-    audio = rng.normal(1000, 3000, (2049, 14))
-    a, b = Conditioning(14), StreamConditioning(14, runtime)
-    expected = np.vstack([a.feed(part) for part in np.array_split(audio, [73, 512])])
-    actual = np.vstack([b.feed(part) for part in np.array_split(audio, [73, 512])])
-    np.testing.assert_allclose(actual, expected, atol=3e-14, rtol=1e-12)
     source = ROOT / 'ps/stream_kernel.c'
     return dict(result='passed', abi=1, machine=platform.machine(), library=str(Path(destination).resolve()),
-                phat_maximum_error=errors, conditioning_maximum_error=float(np.max(abs(actual - expected))),
+                phat_maximum_error=errors,
                 source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                 library_sha256=hashlib.sha256(Path(destination).read_bytes()).hexdigest(),
                 scope='host numerical self-check; ARM throughput and the 500ms target require board measurement')

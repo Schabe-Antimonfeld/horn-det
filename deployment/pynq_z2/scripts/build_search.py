@@ -15,8 +15,6 @@ sys.path.insert(0, str(ROOT))
 
 def build(output=None, compiler=None):
     import numpy as np
-    from ps.configuration import load_config
-    from ps.search import Search
     destination = Path(output or ROOT / 'ps' / ('srp_search.dll' if sys.platform == 'win32' else 'libsrp.so')).resolve()
     if destination.exists():
         raise ValueError('Choose a new library path; an earlier library already exists')
@@ -34,39 +32,40 @@ def build(output=None, compiler=None):
         command += ['-mcpu=cortex-a9', '-mfpu=neon', '-mfloat-abi=hard']
     command += [str(source), '-o', str(destination), '-lm']
     subprocess.run(command, check=True)
-    config = load_config()
-    settings = dict(config['search'], algorithm='cached', fft_fold=4, implementation='numpy')
-    settings.pop('native_precision', None)
-    settings.pop('native_library', None)
-    reference = Search(config['audio'], settings)
-    native = Search(config['audio'], dict(settings, implementation='native', native_library=str(destination)))
-    audio = np.random.default_rng(20261031).normal(size=(4096, 14))
-    expected, actual = reference.correlations(audio), native.correlations(audio)
-    error = float(np.abs(actual - expected).max())
-    np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
-    indices = np.arange(0, 5580, 37)
-    np.testing.assert_allclose(native.score(actual, indices), reference.score(expected, indices), atol=1e-11, rtol=1e-12)
-    single = Search(config['audio'], dict(settings, implementation='native', native_precision='single', native_library=str(destination)))
-    single_error = float(np.abs(single.correlations(audio) - expected).max())
-    if single_error > 1e-6:
-        raise ValueError('Single-precision PHAT failed its numerical self-check')
-    result = dict(result='passed', library=str(destination), machine=platform.machine(), abi=2,
-                  reference_implementation='native' if reference.native is not None else 'numpy',
-                  double_check_precision=native.native.precision,
-                  gcc_maximum_error=error, source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
-                  gcc_single_maximum_error=single_error,
-                  library_sha256=hashlib.sha256(destination.read_bytes()).hexdigest(),
-                  scope='host-only native numerical test; not ARM or FPGA hardware acceptance')
+    result = check(destination)
+    result['command'] = command
     destination.with_name(destination.name + '.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     return result
+
+
+def check(destination):
+    import numpy as np
+    from types import SimpleNamespace
+    from ps.search import Native
+    rng = np.random.RandomState(20261103)
+    first = rng.randint(0, 91 * 256, (91, 23)).astype(np.int32)
+    second = rng.randint(0, 91 * 256, (91, 23)).astype(np.int32)
+    fraction = rng.uniform(size=(91, 23))
+    search = SimpleNamespace(first=first, second=second, fraction=fraction, settings={'native_precision': 'single'})
+    native = Native(search, destination)
+    correlations = rng.normal(size=(91, 256))
+    values = correlations.ravel()
+    expected = (values[first] + fraction * (values[second] - values[first])).sum(axis=0)
+    actual = native.score(correlations, np.arange(23))
+    np.testing.assert_allclose(actual, expected, atol=1e-11, rtol=1e-12)
+    return dict(result='passed', abi=2, library=str(Path(destination).resolve()), machine=platform.machine(),
+                maximum_error=float(np.max(abs(actual - expected))),
+                source_sha256=hashlib.sha256((ROOT / 'ps/search_kernel.c').read_bytes()).hexdigest(),
+                library_sha256=hashlib.sha256(Path(destination).read_bytes()).hexdigest())
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output')
     parser.add_argument('--compiler')
+    parser.add_argument('--check')
     args = parser.parse_args()
-    print(json.dumps(build(args.output, args.compiler)))
+    print(json.dumps(check(args.check) if args.check else build(args.output, args.compiler)))
 
 
 if __name__ == '__main__':

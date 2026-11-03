@@ -1,5 +1,7 @@
 # FPGA 禁鸣区定向鸣笛检测项目文档
 
+当前可运行主线为14路、全网格SRP＋候选FFT波束＋BandTemporalMLP-30866，入口见[最新版算法](../deployment/pynq_z2/README.md)。下面8路/Tiny CNN/Horn-aware等内容是原理及历史设计记录，不是当前默认配置；其研究代码与旧实验已归档到codex/archive-2026-11-03。固定权重回放与冻结特征评测的区别见[数据说明](../deployment/pynq_z2/DATA.md)。
+
 本目录用于比赛项目后续开发参考。历史参考基线的系统闭环为：
 
 ```text
@@ -23,9 +25,9 @@ Tiny CNN       声源定向
        定向抓拍
 ```
 
-## 推荐主算法
+## 历史参考方案
 
-1. **鸣笛检测参考基线**：Log-Mel + Tiny CNN；第 07 章的 FFT 规则、MFCC 分类器、迁移学习、蒸馏、CRNN 和 PCEN 均为待确定候选，尚未替换主线。
+1. **鸣笛检测参考基线**：Log-Mel + Tiny CNN；第 07 章的 FFT 规则、MFCC 分类器、迁移学习、蒸馏、CRNN 和 PCEN 均为待确定候选，当时未替换参考基线；当前部署以最新版时间频带MLP为准。
 2. **基础定位**：GCC-PHAT + SRP-PHAT。
 3. **比赛改进定位**：目标频带增强、谱减与粗到细搜索组成的 Horn-aware SRP。
 4. **实时优化**：根据阵列几何选择可靠麦克风对，减少无效 GCC / SRP 运算。

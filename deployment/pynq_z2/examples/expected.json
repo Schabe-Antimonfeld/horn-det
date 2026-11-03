@@ -1,0 +1,248 @@
+{
+  "horn-array14.wav": [
+    {
+      "state": "CANDIDATE",
+      "event_id": 1,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 0,
+      "sample_end_exclusive": 48128,
+      "epoch": 0,
+      "score": 0.9990476222439684,
+      "score_margin": 0.09615066232435454,
+      "horn_candidate": true,
+      "doa_valid": true,
+      "capture_candidate": true,
+      "capture_candidates": [
+        {
+          "azimuth": -180.0,
+          "depression": 33.0,
+          "response": 12.2947500008808,
+          "score": 0.9990476222439684
+        },
+        {
+          "azimuth": -60.0,
+          "depression": 24.0,
+          "response": 8.517248361648665,
+          "score": 0.9028969599196138
+        }
+      ],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "direction_selected",
+      "direction_candidates": [
+        {
+          "azimuth": -180.0,
+          "depression": 33.0,
+          "response": 12.2947500008808,
+          "score": 0.9990476222439684
+        }
+      ],
+      "azimuth": -180.0,
+      "depression": 33.0,
+      "scores": [
+        0.9990476222439684,
+        0.9028969599196138
+      ],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    },
+    {
+      "state": "CONFIRMED",
+      "event_id": 1,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 24064,
+      "sample_end_exclusive": 72192,
+      "epoch": 0,
+      "score": 0.9942448363928155,
+      "score_margin": 0.3005978545595147,
+      "horn_candidate": true,
+      "doa_valid": true,
+      "capture_candidate": true,
+      "capture_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.115742714590922,
+          "score": 0.9942448363928155
+        }
+      ],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "direction_selected",
+      "direction_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.115742714590922,
+          "score": 0.9942448363928155
+        }
+      ],
+      "azimuth": 178.0,
+      "depression": 33.0,
+      "scores": [
+        0.9942448363928155,
+        0.6936469818333008
+      ],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    },
+    {
+      "state": "CONFIRMED",
+      "event_id": 1,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 48128,
+      "sample_end_exclusive": 96256,
+      "epoch": 0,
+      "score": 0.9992140560186866,
+      "score_margin": 0.12981980545514238,
+      "horn_candidate": true,
+      "doa_valid": true,
+      "capture_candidate": true,
+      "capture_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.271450697717412,
+          "score": 0.9992140560186866
+        }
+      ],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "direction_selected",
+      "direction_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.271450697717412,
+          "score": 0.9992140560186866
+        }
+      ],
+      "azimuth": 178.0,
+      "depression": 33.0,
+      "scores": [
+        0.9992140560186866,
+        0.8693942505635442
+      ],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    },
+    {
+      "state": "CONFIRMED",
+      "event_id": 1,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 72192,
+      "sample_end_exclusive": 120320,
+      "epoch": 0,
+      "score": 0.9957682900905963,
+      "score_margin": 0.32036606658536504,
+      "horn_candidate": true,
+      "doa_valid": true,
+      "capture_candidate": true,
+      "capture_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.206877958934802,
+          "score": 0.9957682900905963
+        }
+      ],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "direction_selected",
+      "direction_candidates": [
+        {
+          "azimuth": 178.0,
+          "depression": 33.0,
+          "response": 12.206877958934802,
+          "score": 0.9957682900905963
+        }
+      ],
+      "azimuth": 178.0,
+      "depression": 33.0,
+      "scores": [
+        0.9957682900905963,
+        0.6754022235052313
+      ],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    }
+  ],
+  "silence-array14.wav": [
+    {
+      "state": "IDLE",
+      "event_id": 0,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 0,
+      "sample_end_exclusive": 48128,
+      "epoch": 0,
+      "score": 0.0,
+      "score_margin": 0.0,
+      "horn_candidate": false,
+      "doa_valid": false,
+      "capture_candidate": false,
+      "capture_candidates": [],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "no_horn_evidence",
+      "direction_candidates": [],
+      "azimuth": null,
+      "depression": null,
+      "scores": [],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    },
+    {
+      "state": "IDLE",
+      "event_id": 0,
+      "ended_event": null,
+      "history_reset": false,
+      "sample_first": 24064,
+      "sample_end_exclusive": 72192,
+      "epoch": 0,
+      "score": 0.0,
+      "score_margin": 0.0,
+      "horn_candidate": false,
+      "doa_valid": false,
+      "capture_candidate": false,
+      "capture_candidates": [],
+      "capture_threshold": 0.9,
+      "direction_threshold": 0.95,
+      "event_basis": "capture_candidate",
+      "acoustic_state": "no_horn_evidence",
+      "direction_candidates": [],
+      "azimuth": null,
+      "depression": null,
+      "scores": [],
+      "input_clipped": false,
+      "activation_clipped": false,
+      "frontend_clipped": false,
+      "srp_backend": "numpy",
+      "classifier": "BandTemporalMLP-30866"
+    }
+  ]
+}

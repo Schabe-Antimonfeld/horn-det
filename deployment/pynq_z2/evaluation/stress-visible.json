@@ -1,0 +1,3362 @@
+[
+  {
+    "id": 0,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 27.45751756785691
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 13.717947988954414
+      }
+    ],
+    "pcm_sha256": "2953da0344b619ac33e25a3633332be9992054f68a8257fff4af4bb38fb68a39"
+  },
+  {
+    "id": 1,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_10_A_N1.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 21.620214206033584
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 14.605722393791247
+      }
+    ],
+    "pcm_sha256": "21324b301e127129936f559a2e8aac4d814588960e7be4c86945f2d535e1809a"
+  },
+  {
+    "id": 2,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 18.0,
+        "response": 30.399844624809024
+      },
+      {
+        "azimuth": 92.0,
+        "depression": 18.0,
+        "response": 11.18388337623151
+      }
+    ],
+    "pcm_sha256": "f0087000b784a01b9738ac395a6b49a985d9b486608b99c925a21557e55f5bcb"
+  },
+  {
+    "id": 3,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_10_A_N2.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 21.0,
+        "response": 27.218545474419596
+      },
+      {
+        "azimuth": 92.0,
+        "depression": 15.0,
+        "response": 10.486886557594472
+      }
+    ],
+    "pcm_sha256": "287bad96727fa377ad80b7bb53af2b7730161f7e8d591e322ab33b41642393b7"
+  },
+  {
+    "id": 4,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 23.569768402047423
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 20.457109547153724
+      }
+    ],
+    "pcm_sha256": "37b00cbffb35578279a6faca1646c887df8555ca18d562ee717a427f99fd999a"
+  },
+  {
+    "id": 5,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_10_A_N3.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 22.05525846584142
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 20.72416293191567
+      }
+    ],
+    "pcm_sha256": "21dca68d88df52e6061f4d840875ed010b24275fb6c69fb5ef23c0f672b320ab"
+  },
+  {
+    "id": 6,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 36.26863029160594
+      },
+      {
+        "azimuth": 142.0,
+        "depression": 39.0,
+        "response": 6.8151726168132045
+      }
+    ],
+    "pcm_sha256": "cec7ab53fadce6f32ac44760e2c940eaebb7f1a69061b2f60c01f556b7981102"
+  },
+  {
+    "id": 7,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_10_A_N4.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 36.757875114077414
+      },
+      {
+        "azimuth": 124.0,
+        "depression": 15.0,
+        "response": 6.445212826603314
+      }
+    ],
+    "pcm_sha256": "c62f1075964cbfbe8cc276cb60056a63bb899583e5df94cf200c0d0f1f59410a"
+  },
+  {
+    "id": 8,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 21.0,
+        "response": 37.48709382375627
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 18.0,
+        "response": 5.689449446857449
+      }
+    ],
+    "pcm_sha256": "7346bb198bbf11c064c8310d7cda621d9321a0fc078af4678fdc3dc262b79f88"
+  },
+  {
+    "id": 9,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_10_A_N5.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 35.99058184994586
+      },
+      {
+        "azimuth": 96.0,
+        "depression": 21.0,
+        "response": 5.4853342968327
+      }
+    ],
+    "pcm_sha256": "222e9be80c045c74ec7ff07386ee38d16140836f74768db0dc56d675028aeff0"
+  },
+  {
+    "id": 10,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_7_A_S.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 12.0,
+        "response": 36.085459358135125
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 12.0,
+        "response": 5.758289556240427
+      }
+    ],
+    "pcm_sha256": "a361d1c1a2133dbd339d480391774e2b796a2045902d07cdd8a507111d0cc122"
+  },
+  {
+    "id": 11,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_10_A_N6.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 12.0,
+        "response": 32.27696971286497
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 0.0,
+        "response": 5.9957813014794334
+      }
+    ],
+    "pcm_sha256": "87b19adef672a00f8a61e157e47dec6d960f12fbbcac2f571ad0dad7330a4c34"
+  },
+  {
+    "id": 12,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 18.579311314149557
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 15.0,
+        "response": 7.157446472982478
+      }
+    ],
+    "pcm_sha256": "129b5b9f5769947f53d4aec445d135abb89ab8bbd2aab1c514fb830cf55d86a6"
+  },
+  {
+    "id": 13,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_10_A_N8.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 21.0,
+        "response": 49.19961942924831
+      },
+      {
+        "azimuth": -158.0,
+        "depression": 9.0,
+        "response": 5.977529883446456
+      }
+    ],
+    "pcm_sha256": "db02d18380497e8d6f81698fa41444ee2ef54547f1be4b57fe5f9464b62377b4"
+  },
+  {
+    "id": 14,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 14.535649858769421
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 9.0,
+        "response": 14.432267321781874
+      }
+    ],
+    "pcm_sha256": "7f0c98c14232f298c0ca73fb2f6a1548c5799fedb4308eddc9656f12fe8e082d"
+  },
+  {
+    "id": 15,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_10_A_N9.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 44.19190964791545
+      },
+      {
+        "azimuth": 82.0,
+        "depression": 0.0,
+        "response": 8.127849231217471
+      }
+    ],
+    "pcm_sha256": "f2d254319c9d04aed563e64f2436e230760f7451828ac9ecafb3026adc3ee241"
+  },
+  {
+    "id": 16,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 18.389580698082774
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 13.79208194157826
+      }
+    ],
+    "pcm_sha256": "23b6213b561fb40872bc62778af86a08b810501bc0cd21567651c6a912da60bb"
+  },
+  {
+    "id": 17,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_10_B_N1.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 29.653488566536467
+      },
+      {
+        "azimuth": 116.0,
+        "depression": 24.0,
+        "response": 15.377338357735274
+      }
+    ],
+    "pcm_sha256": "56a1f5fc4e6b3316d36e2ea84f1793bb3f7b9a4bb0bf7e7389bdd7c481bf8f63"
+  },
+  {
+    "id": 18,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 23.5430147949417
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 21.0,
+        "response": 10.902892127246908
+      }
+    ],
+    "pcm_sha256": "fcc6d8507d929124c06f321c16f51e584a55bd5dba11adca37da24ed0f4e3667"
+  },
+  {
+    "id": 19,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_10_B_N2.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 18.0,
+        "response": 31.186287943411696
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 14.104181588141463
+      }
+    ],
+    "pcm_sha256": "120944c81e62e30dc6b941912feca5878d59c60c8ea0915689b6860b5156fb8b"
+  },
+  {
+    "id": 20,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 20.999758342692225
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 4.663092237645234
+      }
+    ],
+    "pcm_sha256": "f3b8ce820548fe2ffa7690398e7e54ae9ac85a2a497d7130890437f71b7b7383"
+  },
+  {
+    "id": 21,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_10_B_N3.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 46.368367338503816
+      },
+      {
+        "azimuth": 96.0,
+        "depression": 15.0,
+        "response": 6.927610147761563
+      }
+    ],
+    "pcm_sha256": "53fb9546a297ae8f01424afdb2ffeedf4d2d3d677a1003fe0b011fec6450c0e1"
+  },
+  {
+    "id": 22,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_7_A_L.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 17.38566222768694
+      },
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 14.396158768901424
+      }
+    ],
+    "pcm_sha256": "78c4777c75caa7f404f5647236bec142ffb9967b69f932bc267cb12440147d62"
+  },
+  {
+    "id": 23,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_10_B_N4.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 33.73210197981265
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 24.0,
+        "response": 10.50373957102421
+      }
+    ],
+    "pcm_sha256": "c6e8000582ef880ca5bb6fff9516a174414f58f6ab20e75ed1393ce32bdc53e8"
+  },
+  {
+    "id": 24,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 22.54274778291218
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 6.0,
+        "response": 9.767003664904655
+      }
+    ],
+    "pcm_sha256": "3771d128715a20f026393b03737177daa2f39fcd6e382d65df4d65b7087dace2"
+  },
+  {
+    "id": 25,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_10_B_N6.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 36.18346451930432
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 6.0,
+        "response": 4.996031830672399
+      }
+    ],
+    "pcm_sha256": "565d81031dc71d505c2946da88f40c4edad631f25912e2638de3c9db6af3dd6a"
+  },
+  {
+    "id": 26,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 18.154720376261867
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 15.589618481020684
+      }
+    ],
+    "pcm_sha256": "bb168d62292929909db71832e23070f45d515aaadcbe0ee34a61be7f33d4019b"
+  },
+  {
+    "id": 27,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_10_B_N7.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 25.99453933586726
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 13.630976640125859
+      }
+    ],
+    "pcm_sha256": "2608297e8afee3c13fbadd8f39f6c470ee0eb7629129d806e1c47d9f9b4810c4"
+  },
+  {
+    "id": 28,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 19.914148879134093
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 18.0,
+        "response": 12.940620051273639
+      }
+    ],
+    "pcm_sha256": "1e29129b1c0606298c853434e69b6418fac969d1c51c3776d252c1cfafb14633"
+  },
+  {
+    "id": 29,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_10_B_N8.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 27.1577899027175
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 18.0,
+        "response": 11.101637216539833
+      }
+    ],
+    "pcm_sha256": "209188ec0cfd9d33a33ac8219c6ce84f13defecb941f2aac0b7ade6a7e4a23bd"
+  },
+  {
+    "id": 30,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 22.651177774212126
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 9.0,
+        "response": 10.196365157946536
+      }
+    ],
+    "pcm_sha256": "6b00d235496bf5b987e8c6a8c0db8639e26e6e23785e869e50dcbcacdd1237c6"
+  },
+  {
+    "id": 31,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_10_B_N9.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 31.487766703896938
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 12.0,
+        "response": 7.791418256655982
+      }
+    ],
+    "pcm_sha256": "49a90a37d659de7ba94cf66aa1af5ff9e959b4a5794cef9baff06411a82ede12"
+  },
+  {
+    "id": 32,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 24.0,
+        "response": 38.66025898449287
+      },
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 7.877482742580631
+      }
+    ],
+    "pcm_sha256": "2275a85bc8495b917b06cd281f3dfa318cd8fd73196c78ec1169fd61ccd46dfb"
+  },
+  {
+    "id": 33,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_10_S_N1.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 24.0,
+        "response": 32.7320302258134
+      },
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 15.472982137056965
+      }
+    ],
+    "pcm_sha256": "bc3d1887772c9d60f209827bc7e0582d87d6722194c49f3cb98c25df436fdeb7"
+  },
+  {
+    "id": 34,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_7_A_V.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 24.189169491400563
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 12.0,
+        "response": 5.885208130592952
+      }
+    ],
+    "pcm_sha256": "6fb3adf8b64f717fe0c2ce2050bf0572fc0cbd32c51e6438e8f8364630f6d6e2"
+  },
+  {
+    "id": 35,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_10_S_N2.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 41.71947688814861
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 9.0,
+        "response": 5.846175171757075
+      }
+    ],
+    "pcm_sha256": "27d04f028596ea378eaea0d31688a2b7eb496b14a85bdc77f22b2dc471318797"
+  },
+  {
+    "id": 36,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 30.138970276351852
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 10.324021090664187
+      }
+    ],
+    "pcm_sha256": "8ce9ee08f7244a7e4114190f5d78251813dd400cd6ef7baa613fc636e91461d1"
+  },
+  {
+    "id": 37,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_10_S_N4.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 41.57433586069581
+      },
+      {
+        "azimuth": -162.0,
+        "depression": 9.0,
+        "response": 9.31146224190749
+      }
+    ],
+    "pcm_sha256": "01094855a83c9e37d753e7c842bca0bdbb54f3f3d1c23587dea9cedeb5c8f045"
+  },
+  {
+    "id": 38,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 21.0,
+        "response": 27.059357889443163
+      },
+      {
+        "azimuth": 92.0,
+        "depression": 18.0,
+        "response": 16.052379889396665
+      }
+    ],
+    "pcm_sha256": "2facbe1e116b2d629b4a1d1a5caa630fedd82de0b441f547d3e6966b45b76091"
+  },
+  {
+    "id": 39,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_10_S_N5.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 21.0,
+        "response": 41.599162650199474
+      },
+      {
+        "azimuth": 92.0,
+        "depression": 18.0,
+        "response": 10.81984534551685
+      }
+    ],
+    "pcm_sha256": "4972f309a547436f521fc18829fbdffc1e7373dd68c7158295d25ab46bca96ac"
+  },
+  {
+    "id": 40,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 6.0,
+        "response": 36.6042209377381
+      },
+      {
+        "azimuth": 56.0,
+        "depression": 18.0,
+        "response": 5.800684835716187
+      }
+    ],
+    "pcm_sha256": "f913335a812857765986994726d8d2c2f6341da2d6f342b30e986d41a15bd196"
+  },
+  {
+    "id": 41,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_10_S_N6.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 47.05986868244507
+      },
+      {
+        "azimuth": 112.0,
+        "depression": 15.0,
+        "response": 6.196585745699764
+      }
+    ],
+    "pcm_sha256": "3c0ec4760e30c29534aaed92b2dbc0282c378edf13825a6223d23321767c396e"
+  },
+  {
+    "id": 42,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 24.976723973871504
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 16.60055358139804
+      }
+    ],
+    "pcm_sha256": "67ad3ffc27323b88f99cd9b373e14f72d289535255fa592fd1f514fb25d26e2c"
+  },
+  {
+    "id": 43,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_10_S_N7.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 21.45628085512793
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 20.162765153186918
+      }
+    ],
+    "pcm_sha256": "008ac8c4457e112fe1ccd27689b5fed5c4626a6bbf22c02770e8840a94359055"
+  },
+  {
+    "id": 44,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 21.0,
+        "response": 31.032862363617927
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 18.0,
+        "response": 12.273534245823113
+      }
+    ],
+    "pcm_sha256": "5985a50e374077c0ee35aff87cf806b6b947df0896a66eec1b3e6921547d64f5"
+  },
+  {
+    "id": 45,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_10_S_N8.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 26.858891528315407
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 18.0,
+        "response": 15.889260424161247
+      }
+    ],
+    "pcm_sha256": "229e53b4293067662f784cdd2decc4fc70d2f4c2747fb31e965bfcdee425c3cc"
+  },
+  {
+    "id": 46,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_10_A_S.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 9.0,
+        "response": 30.889646023807604
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 9.0,
+        "response": 11.080751991861549
+      }
+    ],
+    "pcm_sha256": "ed3f7a621659dde2220e1e12cc78da1014a63ffe0526f7d9d408ae37b25657fb"
+  },
+  {
+    "id": 47,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_10_S_N9.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 9.0,
+        "response": 28.42724393750085
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 9.0,
+        "response": 14.591207684973098
+      }
+    ],
+    "pcm_sha256": "f9bbccecedfdc919f8789da549668821ac87766a74109a7480f5546ab4f7a2a5"
+  },
+  {
+    "id": 48,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 39.042053597251744
+      },
+      {
+        "azimuth": 14.0,
+        "depression": 18.0,
+        "response": 4.585612397950706
+      }
+    ],
+    "pcm_sha256": "6e85e1ba591d57938ec8a640d71bc68df854deddf98587855c19010e0fd098d8"
+  },
+  {
+    "id": 49,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_7_A_N2.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 29.22075030880233
+      },
+      {
+        "azimuth": -158.0,
+        "depression": 9.0,
+        "response": 4.053647656445722
+      }
+    ],
+    "pcm_sha256": "a7978f9982e743d7928429bd7d74d60feddd8c30e2ab34f419eca5c5a6337990"
+  },
+  {
+    "id": 50,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 39.20921785247851
+      },
+      {
+        "azimuth": 34.0,
+        "depression": 0.0,
+        "response": 6.187938366422929
+      }
+    ],
+    "pcm_sha256": "f0744375cf0ed41264944d0d6a5e37f901d13561f4cf389c201cd3121f4376c2"
+  },
+  {
+    "id": 51,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_7_A_N3.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 29.762192919031556
+      },
+      {
+        "azimuth": 82.0,
+        "depression": 0.0,
+        "response": 5.737088498026227
+      }
+    ],
+    "pcm_sha256": "339b3c5ae1450a245eaf30e2acccddd76018a8acd28e8d4c8bd8b312cd6c26ec"
+  },
+  {
+    "id": 52,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 30.040565059715373
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 16.89218297134121
+      }
+    ],
+    "pcm_sha256": "2570c7a3c00fc1eeff7f2e2fd7a9bc3db8541dd3dc2ea83c5a3ffa2ae95ce25a"
+  },
+  {
+    "id": 53,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_7_A_N4.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 26.686860072955856
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 18.161880186871233
+      }
+    ],
+    "pcm_sha256": "62bed65be0f91006e7f7a3221443968fafd4a33325823d3559d602e4b06c958a"
+  },
+  {
+    "id": 54,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 18.0,
+        "response": 32.38629569356724
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 18.0,
+        "response": 8.82273864785095
+      }
+    ],
+    "pcm_sha256": "b4656666b40c16e28b1162cb51403dbd1c202f3fac320a0a3ab90cdc58349ac3"
+  },
+  {
+    "id": 55,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_7_A_N5.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 18.0,
+        "response": 31.283476848874926
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 8.53402790032939
+      }
+    ],
+    "pcm_sha256": "5c9d0abd3a545fd29ac51a8e0d50ebbe7d14ca0ad4660e4c89343fc78d6d7f78"
+  },
+  {
+    "id": 56,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 37.39762408263564
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 8.367724725198617
+      }
+    ],
+    "pcm_sha256": "f2612a1fe4e9013deea28c2b47fbc46cf730c31a549e9159f4d73747f9a1d054"
+  },
+  {
+    "id": 57,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_7_A_N6.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 37.937096205901256
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 6.73376424913549
+      }
+    ],
+    "pcm_sha256": "212b4e1d312ec1c1670b234979cac431e8f8b1a919d2b0218aa17c7daeebacc3"
+  },
+  {
+    "id": 58,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_10_A_L.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 29.88874846217976
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 27.0,
+        "response": 14.668256475083135
+      }
+    ],
+    "pcm_sha256": "0bd11b3b1420d865c8efed531850c59b8794554d70d476f5a051d3883c9c21d2"
+  },
+  {
+    "id": 59,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_7_A_N7.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 31.139482175458344
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 12.372092142124313
+      }
+    ],
+    "pcm_sha256": "7cdbcba3eae28ba06798600ae03e87ace04536ecc1c4e1aeeb22334e40eb1793"
+  },
+  {
+    "id": 60,
+    "label": 1,
+    "angle": -50.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 40.120008587426994
+      },
+      {
+        "azimuth": 16.0,
+        "depression": 24.0,
+        "response": 4.351888867757891
+      }
+    ],
+    "pcm_sha256": "47dc9d9a2655248c8892c49a8da5a8d3081e69435e93f04b2baa86cfe8434b61"
+  },
+  {
+    "id": 61,
+    "label": 0,
+    "angle": -50.0,
+    "target": "C_7_A_N9.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 39.08495819594421
+      },
+      {
+        "azimuth": 16.0,
+        "depression": 24.0,
+        "response": 4.576571006937645
+      }
+    ],
+    "pcm_sha256": "5f7724d4a4cdf89fc517913221c2bef908d70fb2a4776f2b5fd41ee4960e6bab"
+  },
+  {
+    "id": 62,
+    "label": 1,
+    "angle": -30.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 33.10805156285504
+      },
+      {
+        "azimuth": 86.0,
+        "depression": 21.0,
+        "response": 11.247681046813437
+      }
+    ],
+    "pcm_sha256": "df5be5edd7396ecfe2b06822c5a3d36882551732f45775c4bcba71960114dad5"
+  },
+  {
+    "id": 63,
+    "label": 0,
+    "angle": -30.0,
+    "target": "C_7_B_N1.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 20.745646251780613
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 16.545471558781635
+      }
+    ],
+    "pcm_sha256": "e1c317efc42401377cfb354f9575b42931175017a98d5af7a749004950b11734"
+  },
+  {
+    "id": 64,
+    "label": 1,
+    "angle": -10.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 33.83155544223287
+      },
+      {
+        "azimuth": 116.0,
+        "depression": 0.0,
+        "response": 9.229925170377635
+      }
+    ],
+    "pcm_sha256": "72df2e246596ed74a8ee44316a489d257bec6277a7376e5a564c46a1f890860f"
+  },
+  {
+    "id": 65,
+    "label": 0,
+    "angle": -10.0,
+    "target": "C_7_B_N2.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 21.515418996991485
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 18.0,
+        "response": 11.249707519631063
+      }
+    ],
+    "pcm_sha256": "f28cbac472155e130ed2b1f6d80a63a02acacef9ca29bfd9b271f8d099e2fa9b"
+  },
+  {
+    "id": 66,
+    "label": 1,
+    "angle": 10.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 12.0,
+        "response": 33.332615002236935
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 6.0,
+        "response": 9.178017422088258
+      }
+    ],
+    "pcm_sha256": "5ea151e23f3d962bba72fbcede7a802a7cc17ec4a3773a2f3bd9f8bae79eac43"
+  },
+  {
+    "id": 67,
+    "label": 0,
+    "angle": 10.0,
+    "target": "C_7_B_N3.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 21.762067800390543
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 9.0,
+        "response": 15.624301990871771
+      }
+    ],
+    "pcm_sha256": "0e37117ae23959358b317d2bb98720a56e168c7653e1dda5ecde84c3e4def62c"
+  },
+  {
+    "id": 68,
+    "label": 1,
+    "angle": 30.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 38.01148704540222
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 30.0,
+        "response": 7.902814867025566
+      }
+    ],
+    "pcm_sha256": "679c94f4c1916a5dfdbe75166d601d8c1018904e79412649f49658b87b9c46bb"
+  },
+  {
+    "id": 69,
+    "label": 0,
+    "angle": 30.0,
+    "target": "C_7_B_N4.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 28.753606709106933
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 27.0,
+        "response": 9.453407783298935
+      }
+    ],
+    "pcm_sha256": "1c160268a6a4151825f048a68d69538764f8462d7eaedfc1f1f2bada4576b428"
+  },
+  {
+    "id": 70,
+    "label": 1,
+    "angle": 50.0,
+    "target": "C_10_A_V.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 30.013180180838283
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 15.0,
+        "response": 12.880137281767157
+      }
+    ],
+    "pcm_sha256": "7286d72e0d91c50990f2e14a7b909c768bf3f2004736e557363e4f12005394c0"
+  },
+  {
+    "id": 71,
+    "label": 0,
+    "angle": 50.0,
+    "target": "C_7_B_N5.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 19.782819293508236
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 15.0,
+        "response": 17.618018460414515
+      }
+    ],
+    "pcm_sha256": "103e4f8c017c827124b872f1b7998dd11017cd4e8deb13e7ad355f364a1c332c"
+  },
+  {
+    "id": 72,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 40.49939167011891
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 30.0,
+        "response": 5.617317615149904
+      }
+    ],
+    "pcm_sha256": "a5c26bed871675fff658e30d10bf57680676d7ddda3ea5d66007847fea057994"
+  },
+  {
+    "id": 73,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-198411-A-20.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -170.0,
+        "depression": 27.0,
+        "response": 30.55487162848865
+      },
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 11.669510841431373
+      }
+    ],
+    "pcm_sha256": "1c5050c0e93237589421b8decd30738ee92bc474f6428977b09e0f8501f131cc"
+  },
+  {
+    "id": 74,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 18.0,
+        "response": 14.84255663251351
+      },
+      {
+        "azimuth": 84.0,
+        "depression": 0.0,
+        "response": 5.345894774069632
+      }
+    ],
+    "pcm_sha256": "8e2679c8a21df04ea96a5c5fb034cc648e21afe4e58ec21601bf86bcd188e0cd"
+  },
+  {
+    "id": 75,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-198411-B-20.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 21.0,
+        "response": 24.594709382320715
+      },
+      {
+        "azimuth": 84.0,
+        "depression": 0.0,
+        "response": 5.342046608911477
+      }
+    ],
+    "pcm_sha256": "e3ae247cda974a9d197bf589cdbc80b841fd19b4d00dabb8d5e62e74d1288bf5"
+  },
+  {
+    "id": 76,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 17.284081445394595
+      },
+      {
+        "azimuth": 58.0,
+        "depression": 18.0,
+        "response": 2.882541730917914
+      }
+    ],
+    "pcm_sha256": "d8ec7f36084a052bbc90a46f4ffa97766bcd0b98bd61a3d323ace112881c4aa0"
+  },
+  {
+    "id": 77,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-198411-B-20.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 25.989401682315446
+      },
+      {
+        "azimuth": 56.0,
+        "depression": 18.0,
+        "response": 4.455891946887837
+      }
+    ],
+    "pcm_sha256": "d348392906d11d5be41ea299aacb2aee17584a3da400264fe5943b31cbdbfb0d"
+  },
+  {
+    "id": 78,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 12.300633829726042
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 10.994027203106652
+      }
+    ],
+    "pcm_sha256": "055b36cfad6e4e7e4dff1f99ad9a170689bbe0614737f421d018f14e368c5242"
+  },
+  {
+    "id": 79,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-198411-D-20.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 31.18467463060447
+      },
+      {
+        "azimuth": 122.0,
+        "depression": 24.0,
+        "response": 5.3030115430818405
+      }
+    ],
+    "pcm_sha256": "bf3413114d8aedeb349b25af866150bac3e1bd197189710cbdbff4f7bf5ab4d1"
+  },
+  {
+    "id": 80,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 19.35330417316263
+      },
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 11.811312849983764
+      }
+    ],
+    "pcm_sha256": "814e3acb5ce4e6004dfa9478143c4f05d9c02c8bbaac44ebbd316a5d67e33f74"
+  },
+  {
+    "id": 81,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-198411-D-20.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 30.774788807218293
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 10.929538425930955
+      }
+    ],
+    "pcm_sha256": "b5d935bc5a386b161991d5903995a9e854cc75258b572fc52fdcc656e0bae16e"
+  },
+  {
+    "id": 82,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-179860-A-43.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 6.0,
+        "response": 12.103225339972155
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 9.0,
+        "response": 9.84142124662212
+      }
+    ],
+    "pcm_sha256": "5bca59d0d5dbc9934e40a3e7c06683c619522b500f52950559aafbc8939d18b3"
+  },
+  {
+    "id": 83,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-198411-E-20.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 9.0,
+        "response": 19.948446023204085
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 9.0,
+        "response": 10.327929453865881
+      }
+    ],
+    "pcm_sha256": "bb0b6f0a4df1b08067f69ab1eb8eaf666929da1440c6ce1b01859f4ae0c7b41d"
+  },
+  {
+    "id": 84,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 17.04874222925424
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 15.0,
+        "response": 13.52956528073555
+      }
+    ],
+    "pcm_sha256": "5b7251a6f3b800907e322bf589ccc82a4490fd7b9cfc9afae3c25d4f6312b8ed"
+  },
+  {
+    "id": 85,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-198411-G-20.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -172.0,
+        "depression": 18.0,
+        "response": 15.496797618989993
+      },
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 7.907149322904052
+      }
+    ],
+    "pcm_sha256": "36d8afef3fac0914c1b4060837ad068278569f0f7f6fd469ff8311011c7be610"
+  },
+  {
+    "id": 86,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 16.892890629209845
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 9.0,
+        "response": 16.78360622933971
+      }
+    ],
+    "pcm_sha256": "7d5f273efb1b8fd55366141f3b128b078b13a69e976031f6f37a143cead2f1df"
+  },
+  {
+    "id": 87,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-198600-A-45.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 14.740992486903806
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 12.0,
+        "response": 14.66878440223575
+      }
+    ],
+    "pcm_sha256": "feb140c1f1c3a5b14c7b4bb72c10c3c018a110852a109a479c7a30295d3fc85f"
+  },
+  {
+    "id": 88,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 22.601147549739242
+      },
+      {
+        "azimuth": 116.0,
+        "depression": 21.0,
+        "response": 5.63607034331584
+      }
+    ],
+    "pcm_sha256": "bfa94bdc685c96be8715775461f95c2d6476bce89d7e1ee5f4a09170e6fdd35c"
+  },
+  {
+    "id": 89,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-199284-B-45.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 49.31426552904307
+      },
+      {
+        "azimuth": 56.0,
+        "depression": 36.0,
+        "response": 6.849897433995721
+      }
+    ],
+    "pcm_sha256": "02e45bcd3466e86d9efe089e7690988af28d9f4191dbbac05a7461b198e66c24"
+  },
+  {
+    "id": 90,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 21.0,
+        "response": 18.027450645986764
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 11.402242244269075
+      }
+    ],
+    "pcm_sha256": "8aa568c1cd42611012adfe99c9da8d8e0461f161c883ac50e1610cd3906b8ff4"
+  },
+  {
+    "id": 91,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-201170-A-46.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 10.94526146851651
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 21.0,
+        "response": 9.750093223905216
+      }
+    ],
+    "pcm_sha256": "e0405d38dd3169091097fea5264ce6ac511f88abf4309c14922c2e26999195fa"
+  },
+  {
+    "id": 92,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 20.23320600235259
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 12.0,
+        "response": 10.145381992394354
+      }
+    ],
+    "pcm_sha256": "e6d0ef248c240082bcac7fa1184d92dbc14afd87ffcfbbb85fe243d3f8cc06bc"
+  },
+  {
+    "id": 93,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-201172-A-46.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 16.60706319844468
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 12.0,
+        "response": 5.306593681425261
+      }
+    ],
+    "pcm_sha256": "7cae4564ad27c1c2b932ecc326546f8681b104b05d42a7e7b7becd2f79b8c9e5"
+  },
+  {
+    "id": 94,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-179863-A-43.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 32.71735224298981
+      },
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 11.639048954102691
+      }
+    ],
+    "pcm_sha256": "cb8764623bb4760907acbd9e17f03afb3aa3251266661dfca5071adb5450a4a8"
+  },
+  {
+    "id": 95,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-201172-A-46.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 34.8183329195884
+      },
+      {
+        "azimuth": 52.0,
+        "depression": 33.0,
+        "response": 8.355596445683739
+      }
+    ],
+    "pcm_sha256": "1b273c81cfc26bd5d63ba5dd093308c44fe2bebaf81f7c6fda5119354af8c3b3"
+  },
+  {
+    "id": 96,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 13.136087957870798
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 9.0,
+        "response": 9.112191756345696
+      }
+    ],
+    "pcm_sha256": "c58dbff391e746800bf7c914e3942f1f5e723ae0a93bd5f9b73270fa16ec4823"
+  },
+  {
+    "id": 97,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-203128-A-0.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -170.0,
+        "depression": 6.0,
+        "response": 11.996364137023082
+      },
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 8.19560080940905
+      }
+    ],
+    "pcm_sha256": "35735daf6c24cf60d987027434bb5dca190c90e728f495a3e18ce8589951b7cb"
+  },
+  {
+    "id": 98,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 23.155808351416397
+      },
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 10.041047091809737
+      }
+    ],
+    "pcm_sha256": "4abf750aeb305379b911b50d5fd7d19027982aad172e35c1bbdfc084449be430"
+  },
+  {
+    "id": 99,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-203739-A-10.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 33.0,
+        "response": 38.10311803432646
+      },
+      {
+        "azimuth": 86.0,
+        "depression": 21.0,
+        "response": 6.402319929340985
+      }
+    ],
+    "pcm_sha256": "692abe674f08add2396bc51cb660162b8096b37ab5252cf48d2bef96d732fa5b"
+  },
+  {
+    "id": 100,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 15.0,
+        "response": 36.081439736579384
+      },
+      {
+        "azimuth": -14.0,
+        "depression": 30.0,
+        "response": 6.922534016244574
+      }
+    ],
+    "pcm_sha256": "54d1f940296958e9a9fa14f7c1138d6d1aaf0a105ed502c87356bbf38b749379"
+  },
+  {
+    "id": 101,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-204741-A-46.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 15.0,
+        "response": 35.234620303644114
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 7.587224065080045
+      }
+    ],
+    "pcm_sha256": "91ff9a0df9697eb65465d995486b65b6eb020f067c5d4f94333d9a794e597f20"
+  },
+  {
+    "id": 102,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 17.225809385714278
+      },
+      {
+        "azimuth": 144.0,
+        "depression": 6.0,
+        "response": 3.5531754920732923
+      }
+    ],
+    "pcm_sha256": "86757f7b16c8cc5b4d65b3be26f4e01391e9ecae4e5a12df7e38699d6d63658c"
+  },
+  {
+    "id": 103,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-205898-A-40.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 19.85178475788195
+      },
+      {
+        "azimuth": 38.0,
+        "depression": 12.0,
+        "response": 3.4222386539422143
+      }
+    ],
+    "pcm_sha256": "e65d5012e393dff15f3d8ede6c941affa38a068eab11938e31e1b48f6687f91c"
+  },
+  {
+    "id": 104,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 15.954393362305323
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 27.0,
+        "response": 7.41593330582398
+      }
+    ],
+    "pcm_sha256": "9bc91d210df1c98a76685a7dd976f43d7c982f7a4c9ab1f68d0338eda72b2497"
+  },
+  {
+    "id": 105,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-205898-A-40.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 18.331658563209356
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 27.0,
+        "response": 7.2810850033791565
+      }
+    ],
+    "pcm_sha256": "a2089188a7e162dce91461240560cbffc4bdb06f938cc906aafe217a57937ef8"
+  },
+  {
+    "id": 106,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-179865-A-43.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 14.485897758149344
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 18.0,
+        "response": 7.636059118457258
+      }
+    ],
+    "pcm_sha256": "b661d83e7041808d3d1e0e2a9310bb10aadae2914ee834387b92d86d38c883e6"
+  },
+  {
+    "id": 107,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-209992-A-44.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 15.612067474827922
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 15.0,
+        "response": 6.038571232089525
+      }
+    ],
+    "pcm_sha256": "4e9bf980c88403a16b4790d4b0a3fa9974323e6a991359ade762745a5a16f100"
+  },
+  {
+    "id": 108,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 13.97491993048486
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 8.382566469259368
+      }
+    ],
+    "pcm_sha256": "05c7782bf8df33c6a7fea7e39d07982739b62550b63841b85447c6b5cd993612"
+  },
+  {
+    "id": 109,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-212454-A-0.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -172.0,
+        "depression": 24.0,
+        "response": 9.943305689533629
+      },
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 9.494398415687156
+      }
+    ],
+    "pcm_sha256": "dd4aba427e292bb646332b87353da6e3146868c49be245308c4e56c1d377ac8c"
+  },
+  {
+    "id": 110,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 18.0,
+        "response": 19.422287887264382
+      },
+      {
+        "azimuth": -30.0,
+        "depression": 18.0,
+        "response": 9.257206670930046
+      }
+    ],
+    "pcm_sha256": "902a0154a3301b3c2f43a71cc6bd22ec13f8bf995f2c767b9e6c1d0c4e10afb5"
+  },
+  {
+    "id": 111,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-213855-A-0.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 15.0,
+        "response": 24.207773417759654
+      },
+      {
+        "azimuth": 20.0,
+        "depression": 27.0,
+        "response": 3.6057440850627533
+      }
+    ],
+    "pcm_sha256": "2ee16c11b6e7910fe4bdd790e9d71aba7ff3e61cc34b9edcb1a6af718870c591"
+  },
+  {
+    "id": 112,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 12.152099522372053
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 10.114819516501568
+      }
+    ],
+    "pcm_sha256": "638e3efb749a99d4db366805e62dd716d32b1e70b98b7cee8db48f62718dad17"
+  },
+  {
+    "id": 113,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-217158-A-0.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 12.051377015868177
+      },
+      {
+        "azimuth": -14.0,
+        "depression": 18.0,
+        "response": 5.417953436344739
+      }
+    ],
+    "pcm_sha256": "37f5a4f3b0a6762549faa8812579d52a60170f7282bbe29ba56a2fd6854ed23b"
+  },
+  {
+    "id": 114,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 30.83772860855667
+      },
+      {
+        "azimuth": 60.0,
+        "depression": 36.0,
+        "response": 5.22139221487959
+      }
+    ],
+    "pcm_sha256": "eb0e70aee9a7c85d6549fb5730764d84ad26d8eeff5a5e234e075367b546ee2f"
+  },
+  {
+    "id": 115,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-217158-A-0.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 33.52159249712082
+      },
+      {
+        "azimuth": 60.0,
+        "depression": 36.0,
+        "response": 5.972381529831754
+      }
+    ],
+    "pcm_sha256": "0b49680b4799861b5d70e493f7dcd542e0d6afcb63a7112e5a34457e173248c4"
+  },
+  {
+    "id": 116,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 17.096098890106425
+      },
+      {
+        "azimuth": 96.0,
+        "depression": 21.0,
+        "response": 3.084188884971163
+      }
+    ],
+    "pcm_sha256": "9901d74dcfbd662b8f8faf24b5e814b6396676d79a4f0e2129db1f787335807b"
+  },
+  {
+    "id": 117,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-217186-B-16.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 21.0,
+        "response": 9.472418663917852
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 3.1174133902352064
+      }
+    ],
+    "pcm_sha256": "461a20a017564892889c9654a1031e93c9dd439efaa71fcab5c9ffb15c91f7f8"
+  },
+  {
+    "id": 118,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-179866-A-43.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 12.0,
+        "response": 13.712971974010335
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 6.0,
+        "response": 7.989562793149902
+      }
+    ],
+    "pcm_sha256": "1b3b4f742ac8a60140a10046c0348a9c008f6938220840daab38284d929e2712"
+  },
+  {
+    "id": 119,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-217186-C-16.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 9.0,
+        "response": 10.147265603519335
+      },
+      {
+        "azimuth": 50.0,
+        "depression": 9.0,
+        "response": 6.943937422992867
+      }
+    ],
+    "pcm_sha256": "4d022fd5a9a4aba3ae4dc2830afa6f8d6e36e6173b5d2cb797972e4d662362a2"
+  },
+  {
+    "id": 120,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -170.0,
+        "depression": 15.0,
+        "response": 18.599870563432084
+      },
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 10.372630078753193
+      }
+    ],
+    "pcm_sha256": "d6cb2287fb10d7e9b3a8aa5fa89bea89f05e49c11e0707c6e7bcdc8b92cabb8d"
+  },
+  {
+    "id": 121,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-220955-A-40.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -170.0,
+        "depression": 15.0,
+        "response": 23.81146562565937
+      },
+      {
+        "azimuth": 168.0,
+        "depression": 12.0,
+        "response": 5.203944867461561
+      }
+    ],
+    "pcm_sha256": "1e2803f5d61fe098d85ce330ea43e728e1b33ded4ce7a3fd15f09fdbbf52bf0b"
+  },
+  {
+    "id": 122,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 11.889759305738504
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 9.0,
+        "response": 9.767762163928095
+      }
+    ],
+    "pcm_sha256": "5ac638485bd0d195439963ab25e5c76319bfb3cd35dbe2fcf267fb6c97f68922"
+  },
+  {
+    "id": 123,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-231762-A-0.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 9.0,
+        "response": 12.178931324101319
+      },
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 4.247274888493762
+      }
+    ],
+    "pcm_sha256": "a254eb0150f9b42dbd78294172773b376898e65671c40fccef046f94e074434a"
+  },
+  {
+    "id": 124,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 17.891899726918567
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 8.855244486600983
+      }
+    ],
+    "pcm_sha256": "c0d3b122f375da7dfd8fde3c8552f387a2498bd911707c99d6fd9f0440df769f"
+  },
+  {
+    "id": 125,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-232272-A-44.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 24.467881816636442
+      },
+      {
+        "azimuth": 118.0,
+        "depression": 24.0,
+        "response": 13.037075309281844
+      }
+    ],
+    "pcm_sha256": "b2cb132a2039f3d931a14893ce3ef2d4bf77de0b670136ac76bbf95ba92dfbe7"
+  },
+  {
+    "id": 126,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 18.033458227600835
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 21.0,
+        "response": 10.866772065096239
+      }
+    ],
+    "pcm_sha256": "5af6357dbb06d338630abb07f1985345b4bd09bd3e97590b46f57f63093208a2"
+  },
+  {
+    "id": 127,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-235507-A-44.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 18.0,
+        "response": 37.70900660761008
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 5.451199027198946
+      }
+    ],
+    "pcm_sha256": "0930acaa3fd903642febe71ddfc515da8fdfbe896c265b0909289598d6c1f419"
+  },
+  {
+    "id": 128,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 9.0,
+        "response": 32.37291087442655
+      },
+      {
+        "azimuth": 30.0,
+        "depression": 3.0,
+        "response": 9.319184821332371
+      }
+    ],
+    "pcm_sha256": "e3a6ae0e32ddc3e73e8fbc30d0ea4fe9e39061b5ecdd21e4496bad79d9bfee37"
+  },
+  {
+    "id": 129,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-240671-A-44.wav",
+    "interferer": "5-197118-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 9.0,
+        "response": 36.75141467200865
+      },
+      {
+        "azimuth": -150.0,
+        "depression": 15.0,
+        "response": 5.472200657943684
+      }
+    ],
+    "pcm_sha256": "85202c1424b57f552c6c3cfe0464ace84a815d5705199596b1588911f2a4404c"
+  },
+  {
+    "id": 130,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-179868-A-43.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 12.646318185798718
+      },
+      {
+        "azimuth": -128.0,
+        "depression": 24.0,
+        "response": 6.949575597241619
+      }
+    ],
+    "pcm_sha256": "e1f08848a0f94acf2c6d34cd013a812a74c4cdae34c97e3aaf3a04bdea315492"
+  },
+  {
+    "id": 131,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-243773-A-44.wav",
+    "interferer": "5-198373-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 33.0,
+        "response": 28.992046869029608
+      },
+      {
+        "azimuth": 114.0,
+        "depression": 30.0,
+        "response": 4.254602562808828
+      }
+    ],
+    "pcm_sha256": "dffaabb1e44a3dc0588e141426bbbb36b96107b2774595e9078d865cb48f6acd"
+  },
+  {
+    "id": 132,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 9.0,
+        "response": 19.94305996506265
+      },
+      {
+        "azimuth": -176.0,
+        "depression": 24.0,
+        "response": 4.499655216194037
+      }
+    ],
+    "pcm_sha256": "85cdf319088d8522928a66cbe91a62a1d17bc3c0de5a14667226d83b6a64caa5"
+  },
+  {
+    "id": 133,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-243783-A-44.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 12.0,
+        "response": 26.895292984817605
+      },
+      {
+        "azimuth": 16.0,
+        "depression": 24.0,
+        "response": 4.077548093194332
+      }
+    ],
+    "pcm_sha256": "98c370a41f0f0277963904ed54cb76fb02d61580cac7506ff447d5b42cf5bf8c"
+  },
+  {
+    "id": 134,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 33.85958044534236
+      },
+      {
+        "azimuth": -34.0,
+        "depression": 39.0,
+        "response": 8.145650519627328
+      }
+    ],
+    "pcm_sha256": "792323d04bc19a7f4d2eef1beeab0c11056bd806679631ac5f930324f157b76a"
+  },
+  {
+    "id": 135,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-9032-A-0.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 90.0,
+        "depression": 24.0,
+        "response": 36.46027139786319
+      },
+      {
+        "azimuth": 20.0,
+        "depression": 36.0,
+        "response": 5.767676819516858
+      }
+    ],
+    "pcm_sha256": "35e0178380b047108e8587ba29c116981c47fa9bb051497afeb0b3b9b83542c0"
+  },
+  {
+    "id": 136,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 21.0,
+        "response": 19.930330726553738
+      },
+      {
+        "azimuth": 118.0,
+        "depression": 12.0,
+        "response": 5.511777287645188
+      }
+    ],
+    "pcm_sha256": "16071af80f76dcada4240c79851f80b4d03d55801cd7b1966cc14328e14f53cf"
+  },
+  {
+    "id": 137,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-117118-A-42.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 18.0,
+        "response": 10.000968589271197
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 15.0,
+        "response": 7.341793553247941
+      }
+    ],
+    "pcm_sha256": "e3a60eaec55f908b81ad290af9562df43631c59830e99f08926c21ba8c93f2b2"
+  },
+  {
+    "id": 138,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 16.951536569829692
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 9.0,
+        "response": 10.395006670200262
+      }
+    ],
+    "pcm_sha256": "4491680eef623031752fad45e18db3ab5b1857223df140c000f3e83eeb78410c"
+  },
+  {
+    "id": 139,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-117120-A-42.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 9.0,
+        "response": 15.740056397652525
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 6.0,
+        "response": 13.464143267578628
+      }
+    ],
+    "pcm_sha256": "d99ae755bb28b0776d77ef1261a8eb8bdd8022067fae0842dbaaa843cda500de"
+  },
+  {
+    "id": 140,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 24.0,
+        "response": 16.10677106157955
+      },
+      {
+        "azimuth": 30.0,
+        "depression": 33.0,
+        "response": 11.672095262049453
+      }
+    ],
+    "pcm_sha256": "8ee426fd87f3360b1a9c63a4875452d29eb6b58ac5f5a8153053abaaa27d3421"
+  },
+  {
+    "id": 141,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-117122-A-42.wav",
+    "interferer": "5-201172-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 27.0,
+        "response": 21.09027625081175
+      },
+      {
+        "azimuth": 28.0,
+        "depression": 30.0,
+        "response": 4.28596242089387
+      }
+    ],
+    "pcm_sha256": "5d02344b3cefb3049dd67e4ddc22e89998a4b1d8ef020ebbe10cd0adc0725f49"
+  },
+  {
+    "id": 142,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-180156-A-43.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 15.0,
+        "response": 22.02695609349859
+      },
+      {
+        "azimuth": 52.0,
+        "depression": 21.0,
+        "response": 10.284678907543588
+      }
+    ],
+    "pcm_sha256": "14f388ca9c0a78a54de0ac7bf25889844d68911655c5d955339c6361174a43e1"
+  },
+  {
+    "id": 143,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-117773-A-16.wav",
+    "interferer": "5-243773-B-44.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 15.0,
+        "response": 29.039774311695158
+      },
+      {
+        "azimuth": 50.0,
+        "depression": 18.0,
+        "response": 4.717244832034922
+      }
+    ],
+    "pcm_sha256": "4dfa16cb22cb7b07543500604aef314df683d04b3daf6d11e7d27defdafa6788"
+  },
+  {
+    "id": 144,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 25.851106251298965
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 3.898712771006157
+      }
+    ],
+    "pcm_sha256": "3900b732a31516f8b41a5b741fcce25f35e016ddb511a142d96b136328a1e5b1"
+  },
+  {
+    "id": 145,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-133989-B-42.wav",
+    "interferer": "5-240671-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 33.0,
+        "response": 9.700230561076097
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 24.0,
+        "response": 8.803694591508785
+      }
+    ],
+    "pcm_sha256": "03b6c30634d232fd48c87eacd4255ce64cd4cac63b1d48fbe0198794e41372d5"
+  },
+  {
+    "id": 146,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 21.0,
+        "response": 25.119797394713185
+      },
+      {
+        "azimuth": 84.0,
+        "depression": 0.0,
+        "response": 4.873455081798403
+      }
+    ],
+    "pcm_sha256": "bb227cee835c16713390e9ef2262f5a7763eae9f257ed0b384cbe0d9831fdc84"
+  },
+  {
+    "id": 147,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-151085-A-20.wav",
+    "interferer": "5-150409-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 18.0,
+        "response": 29.325010923862852
+      },
+      {
+        "azimuth": 84.0,
+        "depression": 0.0,
+        "response": 6.0788603659500025
+      }
+    ],
+    "pcm_sha256": "2b276c9e99361f3c00d9ee215845c1616d8687778fc5ccb2737574cc7f134b73"
+  },
+  {
+    "id": 148,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 9.0,
+        "response": 25.30342499444307
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 7.106035847696135
+      }
+    ],
+    "pcm_sha256": "d2293225406d05f982ae5cb03ebf6b56b99716a6a95e9531d03646c310f33234"
+  },
+  {
+    "id": 149,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-151085-A-20.wav",
+    "interferer": "5-199284-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -10.0,
+        "depression": 12.0,
+        "response": 29.458650926251533
+      },
+      {
+        "azimuth": 120.0,
+        "depression": 9.0,
+        "response": 7.64913505007112
+      }
+    ],
+    "pcm_sha256": "a5a13e5437867c923020e3488e9990cfe700916e34b8d1fbf5d10df27802fbc5"
+  },
+  {
+    "id": 150,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 18.020717393421805
+      },
+      {
+        "azimuth": 130.0,
+        "depression": 27.0,
+        "response": 13.04179993572509
+      }
+    ],
+    "pcm_sha256": "287d80d34746fd37eaf61bbb9303c6b0943d5d51a1b2bfb8aa6ee0c42dbcfa43"
+  },
+  {
+    "id": 151,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-156999-A-19.wav",
+    "interferer": "5-219044-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 24.0,
+        "response": 17.28783186690122
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 33.0,
+        "response": 7.13204046378619
+      }
+    ],
+    "pcm_sha256": "6f6d544f58a91e3a35817cf99875f24c10c31a542eef25e04577c4752dc2e94f"
+  },
+  {
+    "id": 152,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 18.0,
+        "response": 21.119344773463478
+      },
+      {
+        "azimuth": -82.0,
+        "depression": 15.0,
+        "response": 10.33959824872039
+      }
+    ],
+    "pcm_sha256": "a775deb784c3681d61d21edb9bc14ef069665614b85890eb6a4e5a5b7ca3655d"
+  },
+  {
+    "id": 153,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-156999-B-19.wav",
+    "interferer": "5-209992-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": -80.0,
+        "depression": 15.0,
+        "response": 19.52272953736225
+      },
+      {
+        "azimuth": -150.0,
+        "depression": 18.0,
+        "response": 3.082168008600502
+      }
+    ],
+    "pcm_sha256": "ab775d9b731b32afc588c1b9968a8b46fa1d138f71393361ab1f2f5595beb933"
+  },
+  {
+    "id": 154,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-180156-B-43.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 50.0,
+        "depression": 12.0,
+        "response": 23.574904646339448
+      },
+      {
+        "azimuth": -130.0,
+        "depression": 6.0,
+        "response": 8.139133642663534
+      }
+    ],
+    "pcm_sha256": "c1a9e00f3d81299dc6c3c07d2347e68b229eeea578e1c938290a51e7868bbe64"
+  },
+  {
+    "id": 155,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-156999-D-19.wav",
+    "interferer": "5-117120-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 6.0,
+        "response": 16.454310803780007
+      },
+      {
+        "azimuth": 52.0,
+        "depression": 15.0,
+        "response": 5.169306663581237
+      }
+    ],
+    "pcm_sha256": "4367e3b204d71ec7ff5b880b92e7027b24519d91753a641c079ac9a9b681c446"
+  },
+  {
+    "id": 156,
+    "label": 1,
+    "angle": -50.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 20.549908888560914
+      },
+      {
+        "azimuth": 16.0,
+        "depression": 30.0,
+        "response": 2.810302315992862
+      }
+    ],
+    "pcm_sha256": "804c99c6c7f3f7fab523abbab9e5ee876dc6fc06a983155576c00dc43404b2f6"
+  },
+  {
+    "id": 157,
+    "label": 0,
+    "angle": -50.0,
+    "target": "5-156999-E-19.wav",
+    "interferer": "5-184323-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": -50.0,
+        "depression": 18.0,
+        "response": 8.571406421675952
+      },
+      {
+        "azimuth": -170.0,
+        "depression": 21.0,
+        "response": 3.0172832303033137
+      }
+    ],
+    "pcm_sha256": "fc9602bbe8b6a2b394575082a30fd2dc74fc8f415f5df5674d7aee933c99bb86"
+  },
+  {
+    "id": 158,
+    "label": 1,
+    "angle": -30.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 6.0,
+        "response": 17.281375720378524
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 12.0,
+        "response": 5.119705088154061
+      }
+    ],
+    "pcm_sha256": "11bb44c2b63054581acb2d7233b5b9af99111cc152c4a3b5ec75887aff51f350"
+  },
+  {
+    "id": 159,
+    "label": 0,
+    "angle": -30.0,
+    "target": "5-157204-A-16.wav",
+    "interferer": "5-188796-A-45.wav",
+    "bearings": [
+      {
+        "azimuth": -30.0,
+        "depression": 9.0,
+        "response": 13.53003466191305
+      },
+      {
+        "azimuth": 90.0,
+        "depression": 12.0,
+        "response": 7.872471460523275
+      }
+    ],
+    "pcm_sha256": "1dfc98656e674bb0a08c14250552d1193df3bb78bbaf342b5df878b46eadb98e"
+  },
+  {
+    "id": 160,
+    "label": 1,
+    "angle": -10.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 11.937600080930078
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 11.661045555816637
+      }
+    ],
+    "pcm_sha256": "2c857d8ad3608fb3b31780f8fae306ab024ee4a40955e847d491b2ff2a368d91"
+  },
+  {
+    "id": 161,
+    "label": 0,
+    "angle": -10.0,
+    "target": "5-157204-B-16.wav",
+    "interferer": "5-188716-A-46.wav",
+    "bearings": [
+      {
+        "azimuth": 120.0,
+        "depression": 24.0,
+        "response": 15.161534396823795
+      },
+      {
+        "azimuth": -10.0,
+        "depression": 33.0,
+        "response": 7.064546942764677
+      }
+    ],
+    "pcm_sha256": "a3fddba10640fdb6c2e75338b114f3c4bcc122b221167e44e73c76ee87ef0f74"
+  },
+  {
+    "id": 162,
+    "label": 1,
+    "angle": 10.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 27.12750298278139
+      },
+      {
+        "azimuth": 10.0,
+        "depression": 21.0,
+        "response": 8.726544096013509
+      }
+    ],
+    "pcm_sha256": "a20b2ac1bceb263075fdf274790526f13184f8c007119b5b0994bea0e1890bdb"
+  },
+  {
+    "id": 163,
+    "label": 0,
+    "angle": 10.0,
+    "target": "5-160551-A-42.wav",
+    "interferer": "5-232272-A-44.wav",
+    "bearings": [
+      {
+        "azimuth": 130.0,
+        "depression": 15.0,
+        "response": 32.49662682723528
+      },
+      {
+        "azimuth": 2.0,
+        "depression": 30.0,
+        "response": 4.361420402606833
+      }
+    ],
+    "pcm_sha256": "9d7cff6a24c8219b086528ae0a2344d4f947029b62ec8e3bf34ac4e3272fabbc"
+  },
+  {
+    "id": 164,
+    "label": 1,
+    "angle": 30.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 18.236223314822468
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 9.0,
+        "response": 5.463084808159189
+      }
+    ],
+    "pcm_sha256": "f7375ad89470994f59bcc59f456caeef1b8acdd97a910e6b3be263b2b8c3c76d"
+  },
+  {
+    "id": 165,
+    "label": 0,
+    "angle": 30.0,
+    "target": "5-177957-B-40.wav",
+    "interferer": "5-133989-A-42.wav",
+    "bearings": [
+      {
+        "azimuth": 30.0,
+        "depression": 9.0,
+        "response": 12.476208722166199
+      },
+      {
+        "azimuth": -80.0,
+        "depression": 9.0,
+        "response": 7.571363487874754
+      }
+    ],
+    "pcm_sha256": "f04e8ec2c61320f8c05cc3db9f85243e9acf5b5f6df33cf7a49055008351ada8"
+  },
+  {
+    "id": 166,
+    "label": 1,
+    "angle": 50.0,
+    "target": "5-180156-C-43.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 25.36527723636897
+      },
+      {
+        "azimuth": 52.0,
+        "depression": 33.0,
+        "response": 7.699503616260265
+      }
+    ],
+    "pcm_sha256": "fe00bbf8ad738e13f53893ed8174019a29c752fc6e657d0362f671c3cf4582d7"
+  },
+  {
+    "id": 167,
+    "label": 0,
+    "angle": 50.0,
+    "target": "5-177957-B-40.wav",
+    "interferer": "5-197121-B-45.wav",
+    "bearings": [
+      {
+        "azimuth": -130.0,
+        "depression": 24.0,
+        "response": 29.326551032788277
+      },
+      {
+        "azimuth": 160.0,
+        "depression": 30.0,
+        "response": 4.640507467670983
+      }
+    ],
+    "pcm_sha256": "3b325c5e892eff0bfb62cee018b23a5021b9fd28705170ff950caa7bc6354f70"
+  }
+]

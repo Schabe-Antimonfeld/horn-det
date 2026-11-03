@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 def check(destination):
     import numpy as np
-    from ps.refinement import Runtime
+    from ps.search import Preparation as Runtime
     from ps.dsp import frames
     runtime = Runtime(destination)
     window = np.hanning(1024)

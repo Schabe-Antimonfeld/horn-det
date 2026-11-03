@@ -1,0 +1,102 @@
+{
+  "format": 1,
+  "architecture": "BandTemporalMLP-30866",
+  "feature_mode": "temporal",
+  "model_tag": 405187002,
+  "input_shape": [
+    40,
+    24
+  ],
+  "contexts": 7,
+  "sha256": {
+    "weights.npz": "1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7"
+  },
+  "selection": {
+    "scheme": "combined",
+    "mode": "temporal",
+    "replay": true,
+    "seed": 17,
+    "checkpoint": "combined-17.pt",
+    "sha256": "45519723034d29f95fa16cd4725bb4c5658bee5f81ffbc049c0518f883496a93",
+    "epoch": 14,
+    "gate": {
+      "threshold": 0.95,
+      "margin": 0.0,
+      "constraint_met": true,
+      "macro_f1": 0.7790881969047174,
+      "worst_domain_acceptance": 0.09722222222222222,
+      "metrics": {
+        "tp": 117,
+        "fp": 12,
+        "fn": 51,
+        "tn": 157,
+        "wrong_direction": 1,
+        "positives": 168,
+        "negatives": 168,
+        "accepted_negative": 11,
+        "negative_acceptance": 0.06547619047619048,
+        "accepted_positive": 118,
+        "ambiguous_positive": 0,
+        "ambiguous_negative": 0,
+        "candidate_hits": 164,
+        "precision": 0.9069767441860465,
+        "recall": 0.6964285714285714,
+        "f1": 0.7878787878787877,
+        "detection_precision": 0.9147286821705426,
+        "detection_recall": 0.7023809523809523,
+        "detection_f1": 0.7946127946127947
+      },
+      "domains": {
+        "HornBase": {
+          "tp": 45,
+          "fp": 7,
+          "fn": 27,
+          "tn": 65,
+          "wrong_direction": 0,
+          "positives": 72,
+          "negatives": 72,
+          "accepted_negative": 7,
+          "negative_acceptance": 0.09722222222222222,
+          "accepted_positive": 45,
+          "ambiguous_positive": 0,
+          "ambiguous_negative": 0,
+          "candidate_hits": 72,
+          "precision": 0.8653846153846154,
+          "recall": 0.625,
+          "f1": 0.7258064516129031,
+          "detection_precision": 0.8653846153846154,
+          "detection_recall": 0.625,
+          "detection_f1": 0.7258064516129032
+        },
+        "ESC50": {
+          "tp": 72,
+          "fp": 5,
+          "fn": 24,
+          "tn": 92,
+          "wrong_direction": 1,
+          "positives": 96,
+          "negatives": 96,
+          "accepted_negative": 4,
+          "negative_acceptance": 0.041666666666666664,
+          "accepted_positive": 73,
+          "ambiguous_positive": 0,
+          "ambiguous_negative": 0,
+          "candidate_hits": 92,
+          "precision": 0.935064935064935,
+          "recall": 0.75,
+          "f1": 0.8323699421965318,
+          "detection_precision": 0.948051948051948,
+          "detection_recall": 0.7604166666666666,
+          "detection_f1": 0.8439306358381503
+        }
+      }
+    }
+  },
+  "provenance": {
+    "frontend": "logmel",
+    "scheme": "combined",
+    "plan_sha256": "795c9c7062f4f7d0ae54e552db71ba39b11f8204bf20357e197e356d7c616b08",
+    "license_scope": "research/noncommercial",
+    "evidence": "reused source experiment; no road/board claim"
+  }
+}

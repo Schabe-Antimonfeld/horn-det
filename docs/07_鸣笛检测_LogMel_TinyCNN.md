@@ -1,5 +1,7 @@
 # 07 鸣笛检测：Log-Mel + Tiny CNN
 
+实现状态（2026-11-03）：本章保留原理与历史研究方案，当前唯一运行实现以[最新版算法](../deployment/pynq_z2/README.md)及其default.json为准；旧prototype、训练和候选版本在codex/archive-2026-11-03分支。
+
 ## 1. 任务定义
 
 定位算法只能回答“声音来自哪里”，不能可靠回答“是不是汽车鸣笛”。因此保留独立二分类器：
@@ -88,7 +90,7 @@ Softmax
 
 ### 4.1 完整参考结构与计算量
 
-当前 [Python 实现](../prototype/src/horn/models.py)固定采用 stride=1、same padding、每次卷积后 ReLU、不使用 BatchNorm/Dropout、最后全局均值池化。PyTorch 张量顺序是 `N×1×40×24`，40 是频率轴、24 是时间轴；Softmax 的类别顺序是 `[non-horn, horn]`。该结构是项目工程基线，不声称复现 HornBase 或其他论文原网络。
+当前 [Python 实现](https://github.com/Schabe-Antimonfeld/horn-det/blob/codex/archive-2026-11-03/prototype/src/horn/models.py)固定采用 stride=1、same padding、每次卷积后 ReLU、不使用 BatchNorm/Dropout、最后全局均值池化。PyTorch 张量顺序是 `N×1×40×24`，40 是频率轴、24 是时间轴；Softmax 的类别顺序是 `[non-horn, horn]`。该结构是项目工程基线，不声称复现 HornBase 或其他论文原网络。
 
 | 层 | 输出，不含 batch | 参数，含 bias | MAC/窗口 |
 |---|---|---:|---:|

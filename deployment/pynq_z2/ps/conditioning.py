@@ -183,13 +183,7 @@ class Conditioner:
 
 
 def create_conditioning(config, runtime=None):
-    audio = config['audio']
-    if 'conditioning' in config:
-        options = config['conditioning']
-        validate_options(options)
-        return Conditioner(audio['channels'], audio.get('gains'), audio.get('delays'),
-                           options.get('fir', 'numpy'), options.get('native_library'))
-    if config.get('streaming', {}).get('enabled'):
-        from ps.streaming import conditioning
-        return conditioning(config, runtime)
-    return Conditioning(audio['channels'], audio.get('gains'), audio.get('delays'))
+    audio, options = config['audio'], config['conditioning']
+    validate_options(options)
+    return Conditioner(audio['channels'], audio.get('gains'), audio.get('delays'),
+                       options.get('fir', 'native'), options.get('native_library'))

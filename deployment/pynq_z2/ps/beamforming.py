@@ -1,78 +1,41 @@
-"""Batch the frozen 65-tap beam FIR without changing its window boundaries."""
+"""Shared-input FFT beamforming with independent exact-direction output reuse."""
 
 from collections import OrderedDict
-import ctypes
 import math
-from pathlib import Path
-import sys
+import time
 
 import numpy as np
 
-from ps.dsp import beamform, coordinates
+from ps.dsp import coordinates
 from ps.geometry import direction_vectors
+from ps.streaming import bearing_key
 
 
 def validate_options(options):
-    """Validate optional beam settings independently of the selected model."""
-    allowed = {'implementation', 'fft_size', 'cache_size', 'native_library'}
-    if not isinstance(options, dict) or set(options) - allowed:
+    if not isinstance(options, dict) or set(options) - {'implementation', 'fft_size', 'cache_size'}:
         raise ValueError('Unsupported beamforming options')
-    if options.get('implementation', 'reference') not in ('reference', 'cached', 'fft', 'native'):
-        raise ValueError('Unsupported beamforming implementation')
-    if type(options.get('fft_size', 512)) is not int or options.get('fft_size', 512) not in (512, 1024, 2048):
-        raise ValueError('Beam FFT size must be 512, 1024 or 2048')
-    size = options.get('cache_size', 64)
-    if type(size) is not int or not 1 <= size <= 512:
-        raise ValueError('Beam cache size must be an integer in 1..512')
-    if 'native_library' in options and (options.get('implementation') != 'native'
-            or not isinstance(options['native_library'], str) or not Path(options['native_library']).is_absolute()):
-        raise ValueError('Beam native library override requires an absolute path and native implementation')
-
-
-class Native:
-    """Load the independent double-precision beam FIR ABI on the current host."""
-
-    def __init__(self, path=None):
-        location = Path(path) if path else Path(__file__).with_name('beamforming.dll' if sys.platform == 'win32' else 'libbeam.so')
-        if not location.is_file():
-            raise ValueError('Native beam library missing; run python scripts/build_beam.py on the target')
-        try:
-            self.library = ctypes.CDLL(str(location.resolve()))
-            self.library.beam_abi.restype = ctypes.c_int
-            if self.library.beam_abi() != 1:
-                raise ValueError('Unsupported native beam ABI')
-            real = np.ctypeslib.ndpointer(dtype=np.float64, flags='C_CONTIGUOUS')
-            integer = np.ctypeslib.ndpointer(dtype=np.int32, flags='C_CONTIGUOUS')
-            number = ctypes.c_int
-            self.library.beam_fir.argtypes = [real, number, number, real, integer, number, real]
-            self.library.beam_fir.restype = number
-        except (OSError, AttributeError) as error:
-            raise ValueError('Cannot load native beam library; rebuild with scripts/build_beam.py: ' + str(error))
-
-    def run(self, audio, plans):
-        values = np.ascontiguousarray(audio.T)
-        kernels = np.ascontiguousarray([plan['kernels'] for plan in plans])
-        integers = np.ascontiguousarray([plan['integers'] for plan in plans], dtype=np.int32)
-        output = np.zeros((len(plans), len(audio)))
-        if max(len(audio), audio.shape[1], len(plans)) > 2147483000:
-            raise ValueError('Beam input exceeds native integer limits')
-        if self.library.beam_fir(values, len(audio), audio.shape[1], kernels, integers, len(plans), output):
-            raise ValueError('Native beam FIR failed')
-        return output
+    if options.get('implementation') != 'fft' or options.get('fft_size') != 1024:
+        raise ValueError('Latest beamforming requires the 1024-point FFT implementation')
+    if type(options.get('cache_size', 64)) is not int or not 1 <= options.get('cache_size', 64) <= 512:
+        raise ValueError('Invalid beam plan cache size')
 
 
 class Beamformer:
-    """Reuse FIR plans and channel FFTs; retain reference output length and latency."""
-
     def __init__(self, audio, options=None):
         self.options = dict(options or {})
         validate_options(self.options)
         self.audio = dict(audio)
         self.array = coordinates(audio)
-        self.implementation = self.options.get('implementation', 'reference')
+        self.implementation = 'fft'
         self.fft_size = self.options.get('fft_size', 512)
         self.cache = OrderedDict()
-        self.native = Native(self.options.get('native_library')) if self.implementation == 'native' else None
+        support = int(math.ceil(audio['diameter'] * audio['sample_rate'] / audio['speed'])) + 65
+        common = math.gcd(audio['update_samples'], audio['window_samples'])
+        self.hop = max(value for value in range(1, self.fft_size - support + 1) if common % value == 0)
+        self.history = self.fft_size - self.hop
+        self.spectra = None
+        self.outputs = {}
+        self.end = None
 
     def _plan(self, bearing):
         angle = 0 if bearing.azimuth is None else bearing.azimuth
@@ -114,50 +77,78 @@ class Beamformer:
                 output[integer:] += filtered[:len(audio) - integer]
         return output / audio.shape[1]
 
-    def _fft(self, audio, plans):
-        history = max(int(plan['integers'].max()) for plan in plans) + 32
-        hop = self.fft_size - history
-        count = (len(audio) + hop - 1) // hop
-        padded = np.zeros((audio.shape[1], history + count * hop))
-        padded[:, history:history + len(audio)] = audio.T
-        blocks = np.lib.stride_tricks.as_strided(padded,
-                    shape=(count, audio.shape[1], self.fft_size),
-                    strides=(hop * padded.strides[1], padded.strides[0], padded.strides[1]), writeable=False)
-        spectrum = np.fft.rfft(blocks, axis=-1)
-        output = []
-        for plan in plans:
-            combined = np.einsum('bcf,cf->bf', spectrum, plan['spectrum'], optimize=False)
-            waveform = np.fft.irfft(combined, n=self.fft_size, axis=-1)[:, history:].reshape(-1)[:len(audio)]
-            waveform /= audio.shape[1]
-            # The frozen implementation discards each channel until its integer shift.
-            prefix = min(len(audio), int(plan['integers'].max()))
-            waveform[:prefix] = self._convolve(audio[:prefix], plan)
-            output.append(waveform)
-        return output
-
-    def run(self, audio, bearings):
-        """Return ordered (waveform, common delay) pairs and actual backend diagnostics."""
-        values = np.asarray(audio, dtype=float)
-        if values.ndim != 2 or values.shape[1] != self.audio['channels'] or not len(values) or not np.isfinite(values).all():
-            raise ValueError('Beam audio must contain finite samples for every configured channel')
-        bearings = list(bearings)
-        metric = dict(implementation=self.implementation, beams=len(bearings), taps=65, cache_hits=0,
-                      fft_size=self.fft_size if self.implementation == 'fft' else None)
-        if not bearings:
-            return [], metric
-        if self.implementation == 'reference':
-            return [beamform(values, bearing, self.audio) for bearing in bearings], metric
-        plans = []
+    def run_snapshot(self, snapshot, bearings, context):
+        audio = np.asarray(snapshot['audio'], dtype=float)
+        if audio.ndim != 2 or audio.shape[1] != self.audio['channels'] or not len(audio) or not np.isfinite(audio).all():
+            raise ValueError('Streaming beam audio must be finite with configured channels')
+        count = (len(audio) + self.hop - 1) // self.hop
+        plans, hits = [], 0
         for bearing in bearings:
             plan, hit = self._plan(bearing)
             plans.append(plan)
-            metric['cache_hits'] += int(hit)
-        if self.native is not None:
-            waveforms = self.native.run(values, plans)
-        elif self.implementation == 'fft':
-            waveforms = self._fft(values, plans)
+            hits += int(hit)
+        metric = dict(implementation='refined_stream_fft', beams=len(plans), taps=65, fft_size=self.fft_size,
+                      cache_hits=hits, fft_hop=self.hop, fft_blocks_total=count, fft_blocks_computed=0,
+                      fft_blocks_reused=0, output_reused=False, output_reused_beams=0, output_reuse_flags=[],
+                      support_samples=0, fft_seconds=0.0, synthesis_seconds=0.0, spectrum_cache_bytes=0)
+        if not plans:
+            self.spectra, self.outputs, self.end = None, {}, context['end']
+            return [], metric
+        began = time.perf_counter()
+        step = self.audio['update_samples'] // self.hop
+        expected = max(0, count - step - 1)
+        reusable = context['reusable'] and self.end == context['previous_end'] and len(audio) % self.hop == 0
+        reused = expected if reusable and self.spectra is not None and len(self.spectra) == expected else 0
+        if len(audio) % self.hop == 0 and self.hop >= self.history:
+            prefix = np.zeros((1, audio.shape[1], self.fft_size))
+            prefix[0, :, self.history:] = audio[:self.hop].T
+            interior = np.lib.stride_tricks.as_strided(audio[self.hop - self.history:],
+                       shape=(count - 1, audio.shape[1], self.fft_size),
+                       strides=(self.hop * audio.strides[0], audio.strides[1], audio.strides[0]), writeable=False)
+            fresh = np.fft.rfft(interior[reused:], axis=-1)
+            pieces = [np.fft.rfft(prefix, axis=-1)] + ([self.spectra] if reused else []) + [fresh]
         else:
-            waveforms = [self._convolve(values, plan) for plan in plans]
-        if not all(np.isfinite(waveform).all() for waveform in waveforms):
-            raise ValueError('Beam result exceeds finite arithmetic range')
-        return [(waveform, plan['common']) for waveform, plan in zip(waveforms, plans)], metric
+            padded = np.zeros((audio.shape[1], self.history + count * self.hop))
+            padded[:, self.history:self.history + len(audio)] = audio.T
+            blocks = np.lib.stride_tricks.as_strided(padded, shape=(count, audio.shape[1], self.fft_size),
+                      strides=(self.hop * padded.strides[1], padded.strides[0], padded.strides[1]), writeable=False)
+            fresh = np.fft.rfft(blocks, axis=-1)
+            pieces = [fresh]
+        self.spectra = (fresh[-expected:].copy() if len(fresh) > expected + 1 else fresh[-expected:]) if expected else None
+        metric.update(fft_blocks_computed=count - reused, fft_blocks_reused=reused,
+                      fft_seconds=time.perf_counter() - began,
+                      spectrum_cache_bytes=(self.spectra.base.nbytes if isinstance(self.spectra.base, np.ndarray)
+                                             else self.spectra.nbytes) if self.spectra is not None else 0)
+        support = max(int(plan['integers'].max()) for plan in plans) + 32
+        keys = [bearing_key(bearing) for bearing in bearings]
+        flags = [bool(reusable and key in self.outputs and context['overlap'] > support) for key in keys]
+        output = []
+        began = time.perf_counter()
+        for key, plan, stable in zip(keys, plans, flags):
+            start = context['overlap'] // self.hop if stable else 0
+            tails, cursor = [], 0
+            for piece in pieces:
+                if cursor + len(piece) > start:
+                    selected = piece[max(0, start - cursor):]
+                    combined = np.einsum('bcf,cf->bf', selected, plan['spectrum'], optimize=False)
+                    tails.append(np.fft.irfft(combined, n=self.fft_size, axis=-1)[:, self.history:].reshape(-1))
+                cursor += len(piece)
+            tail = np.concatenate(tails)
+            waveform = np.zeros(len(audio))
+            offset = start * self.hop
+            waveform[offset:] = tail[:len(audio) - offset] / audio.shape[1]
+            if stable:
+                delta, overlap = context['delta'], context['overlap']
+                waveform[support:overlap] = self.outputs[key][delta + support:delta + overlap]
+            prefix = min(len(audio), support if stable else int(plan['integers'].max()))
+            waveform[:prefix] = self._convolve(audio[:prefix], plan)
+            waveform.setflags(write=False)
+            output.append((waveform, plan['common']))
+        if not all(np.isfinite(waveform).all() for waveform, _ in output):
+            raise ValueError('Streaming beam result is not finite')
+        self.outputs = {key: waveform for key, (waveform, _) in zip(keys, output)} if len(keys) <= 8 else {}
+        self.end = context['end']
+        metric.update(output_reused=all(flags), output_reused_beams=sum(flags), output_reuse_flags=flags,
+                      support_samples=support, synthesis_seconds=time.perf_counter() - began,
+                      output_cache_bytes=sum(waveform.nbytes for waveform in self.outputs.values()))
+        return output, metric

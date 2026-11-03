@@ -1,5 +1,7 @@
 # 04 GCC-PHAT 完整推导
 
+实现状态（2026-11-03）：本章保留原理与历史研究方案，当前唯一运行实现以[最新版算法](../deployment/pynq_z2/README.md)及其default.json为准；旧prototype、训练和候选版本在codex/archive-2026-11-03分支。
+
 ## 1. 从时间延迟到相关峰
 
 假设理想情况下：

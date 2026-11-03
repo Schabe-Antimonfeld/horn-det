@@ -47,57 +47,29 @@ def validate_config(config):
         raise ValueError('Search sizes must be positive integers')
     if not 0 < search['separation'] <= 180:
         raise ValueError('Invalid candidate separation')
-    algorithm = search.get('algorithm', 'reference')
-    implementation = search.get('implementation', 'numpy')
-    if algorithm not in ('reference', 'cached', 'hierarchical') or implementation not in ('numpy', 'native'):
-        raise ValueError('Unsupported SRP algorithm or implementation')
-    if search.get('pair_mode', 'all') not in ('all', 'mixed35'):
-        raise ValueError('Unsupported microphone pair mode')
-    fold = search.get('fft_fold', 1)
-    if type(fold) is not int or fold not in (1, 2, 4, 8):
-        raise ValueError('Invalid folded FFT factor')
-    if algorithm == 'reference' and (implementation != 'numpy' or search.get('pair_mode', 'all') != 'all' or fold != 1):
-        raise ValueError('Reference SRP does not apply cached/native/pair/fold options')
-    if algorithm != 'reference' and search.get('backend', 'numpy') != 'numpy':
-        raise ValueError('Optimized search requires PS execution; the existing FPGA protocol has 91 fixed pairs')
-    if math.ceil(audio['diameter'] * audio['sample_rate'] / audio['speed']) + 1 >= 1024 // fold // 2:
-        raise ValueError('Folded GCC cannot cover the physical array delays')
-    if search.get('native_precision', 'double') not in ('single', 'double'):
-        raise ValueError('Invalid native PHAT precision')
-    if 'native_library' in search and (implementation != 'native' or not isinstance(search['native_library'], str)
-                                      or not Path(search['native_library']).is_absolute()):
-        raise ValueError('A native library override must be an absolute path for the native implementation')
-    if algorithm == 'hierarchical':
-        for key, fine, span, maximum in (('coarse_azimuth', 'azimuth_step', 360, 60),
-                                         ('coarse_depression', 'depression_step', 90, 45)):
-            step = search.get(key, 6 if key == 'coarse_azimuth' else 15)
-            if isinstance(step, bool) or not isinstance(step, (int, float)) or not math.isfinite(step) or not 0 < step <= maximum or abs(span / step - round(span / step)) > 1e-9 or step < search[fine] or abs(step / search[fine] - round(step / search[fine])) > 1e-9:
-                raise ValueError('Coarse SRP steps must cover the grid and be multiples of fine steps')
-        regions = search.get('regions', 6)
-        if type(regions) is not int or not search['candidates'] <= regions <= 64 or type(search.get('bounds', True)) is not bool:
-            raise ValueError('Invalid region count or regional bound switch')
-    streaming = config.get('streaming', {})
-    if not isinstance(streaming, dict) or set(streaming) - {'enabled', 'conditioning', 'native_library'}:
-        raise ValueError('Unsupported streaming settings')
-    if type(streaming.get('enabled', False)) is not bool or streaming.get('conditioning', 'numpy') not in ('numpy', 'native'):
-        raise ValueError('Invalid streaming mode or conditioning')
-    if 'native_library' in streaming and (not isinstance(streaming['native_library'], str)
-                                         or not Path(streaming['native_library']).is_absolute()):
-        raise ValueError('Streaming library override must be absolute')
-    if streaming.get('enabled') and (algorithm not in ('cached', 'hierarchical') or search.get('backend', 'numpy') != 'numpy'
-            or config.get('beamforming', {}).get('implementation') != 'fft'
-            or audio['window_samples'] != 2 * audio['update_samples']):
-        raise ValueError('Streaming requires PS search, FFT beams and fifty-percent aligned overlap')
-    if not streaming.get('enabled', False) and (streaming.get('conditioning', 'numpy') != 'numpy' or 'native_library' in streaming):
-        raise ValueError('Native streaming options require enabled streaming')
-    if 'refinement' in config:
-        from ps.refinement import validate_options as validate_refinement
-        validate_refinement(config['refinement'], streaming)
-    if 'conditioning' in config:
-        from ps.conditioning import validate_options as validate_conditioning
-        validate_conditioning(config['conditioning'])
+    if (search.get('algorithm') != 'cached' or search.get('implementation') != 'native'
+            or search.get('pair_mode') != 'all' or search.get('fft_fold') != 4
+            or search.get('native_precision') != 'single' or search.get('backend') != 'numpy'):
+        raise ValueError('Latest SRP requires complete-grid native single PHAT with all pairs and fold four')
+    if audio['window_samples'] != 48128 or audio['update_samples'] != 24064:
+        raise ValueError('Latest temporal streaming requires 48128/24064 samples')
+    if math.ceil(audio['diameter'] * audio['sample_rate'] / audio['speed']) + 1 >= 128:
+        raise ValueError('Folded GCC cannot cover physical array delays')
+    streaming, refinement = config.get('streaming', {}), config.get('refinement', {})
+    if (not isinstance(streaming, dict) or set(streaming) - {'enabled', 'native_library'}
+            or streaming.get('enabled') is not True):
+        raise ValueError('Latest runtime requires continuous-window processing')
+    if (not isinstance(refinement, dict) or set(refinement) - {'fused_input', 'independent_beams', 'native_library'}
+            or refinement.get('fused_input') is not True or refinement.get('independent_beams') is not True):
+        raise ValueError('Latest runtime requires fused input and independent beam reuse')
+    for section in (search, streaming, refinement):
+        if 'native_library' in section and (not isinstance(section['native_library'], str)
+                                          or not Path(section['native_library']).is_absolute()):
+            raise ValueError('Native library overrides must be absolute paths')
+    from ps.conditioning import validate_options as validate_conditioning
+    validate_conditioning(config.get('conditioning', {}))
     detector = config['detector']
-    if detector['backend'] not in ('fpga', 'integer', 'spectral') or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
+    if detector['backend'] != 'spectral' or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')
     capture = detector.get('capture_threshold', detector['threshold'])
     if isinstance(capture, bool) or not isinstance(capture, (int, float)) or not math.isfinite(capture) or not 0 <= capture <= detector['threshold']:

@@ -1,76 +1,59 @@
 import ast
-import importlib.util
 from pathlib import Path
-import sys
 
 import numpy as np
-import pytest
+
+from ps.configuration import load_config
+from ps.dsp import band_features, coordinates, frames, features
+from ps.streaming import Runtime, Continuity
+from ps.search import Search, Preparation
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from ps.configuration import load_config
-from ps.dsp import Conditioning, band_features, beamform, candidates, features, spatial_map
-from ps.geometry import Bearing
-
-from horn.calibration import StreamCalibration, remove_dc
-from horn.config import Config
-from horn.features import log_mel, mel_energy
-from horn.frontend import stft
-from horn.geometry import circular_array
-from horn.surround import form_beam, spatial_response
 
 
-def test_conditioning_matches_causal_reference_across_partitions():
-    audio = np.random.default_rng(3).normal(1000, 3000, (7000, 14))
-    expected, _ = remove_dc(audio / 32768)
-    filter = Conditioning(14)
-    actual = np.vstack([filter.feed(block) for block in np.array_split(audio, [73, 800, 2048])])
-    np.testing.assert_allclose(actual, expected, atol=2e-14)
-    gains = np.linspace(0.9, 1.1, 14)
-    delays = np.linspace(-0.3, 0.5, 14)
-    expected = StreamCalibration(gains, delays).feed(expected)
-    filter = Conditioning(14, gains, delays)
-    actual = np.vstack([filter.feed(block) for block in np.array_split(audio, [73, 800, 2048])])
-    np.testing.assert_allclose(actual, expected, atol=2e-14)
+def test_symmetric_hann_and_complete_frame_boundaries():
+    audio = np.arange(2055, dtype=float)
+    actual = frames(audio)
+    assert actual.shape == (3, 1, 1024)
+    np.testing.assert_array_equal(actual[1, 0], audio[512:1536])
+    assert features(np.zeros(48128)).shape == (7, 40, 24)
+    for path in (ROOT / 'ps').glob('*.py'):
+        ast.parse(path.read_text(encoding='utf-8'), feature_version=(3, 6))
 
 
-def test_srp_map_and_beam_match_pc_reference():
+def test_srp_matches_independent_single_precision_grouped_phat_and_interpolation():
     config = load_config()
-    config['search'].update(azimuth_step=6, depression_step=6)
-    audio = np.random.default_rng(4).normal(size=(4096, 14))
-    parameters = Config(microphones=14, diameter=0.24)
-    expected = spatial_response(audio, circular_array(parameters), parameters, 6, 6)
-    actual = spatial_map(audio, config['audio'], config['search'])
-    for first, second in zip(actual, expected):
-        np.testing.assert_allclose(first, second, atol=1e-12)
-    bearing = Bearing(30, 42, 1)
-    actual, latency = beamform(audio, bearing, config['audio'])
-    expected, expected_latency = form_beam(audio, circular_array(parameters), bearing, parameters)
-    np.testing.assert_allclose(actual, expected, atol=1e-14)
-    assert latency == expected_latency
-
-
-def test_feature_order_and_scale_match_trained_frontend():
-    audio = np.random.default_rng(8).normal(0, 0.1, 48128)
-    actual = features(audio)
-    reference = np.asarray([log_mel(mel_energy(abs(frame.spectrum[:, 0]) ** 2)) for frame in stft(audio[:, None])])
-    np.testing.assert_allclose(actual[0], reference[:24].T, atol=1e-12)
-    assert actual.shape[1:] == (40, 24)
-    silence = spatial_map(np.zeros((2048, 14)), load_config()['audio'], load_config()['search'])
-    assert candidates(silence) == []
-
-
-def test_centered_frontend_removes_common_gain_without_altering_spectral_contrast():
-    audio = np.random.default_rng(42).normal(0, 0.01, 48000)
-    expected = features(audio, 'centered_logmel')
-    for gain in (0.01, 0.1, 10):
-        np.testing.assert_allclose(features(audio * gain, 'centered_logmel'), expected, atol=1e-5)
-    raw = features(audio)
-    np.testing.assert_allclose(expected, raw - raw.mean(axis=(1, 2), keepdims=True))
-    np.testing.assert_allclose(expected.mean(axis=(1, 2)), 0, atol=1e-12)
-    assert np.isfinite(features(np.zeros(48000), 'centered_logmel')).all()
-    with pytest.raises(ValueError, match='frontend'):
-        features(audio, 'unknown')
+    search = Search(config['audio'], config['search'], Runtime(), config['refinement'])
+    audio = np.random.RandomState(71).normal(0, 0.04, size=(48128 + 24064, 14))
+    continuity = Continuity(config['audio'])
+    for start in (0, 24064):
+        pcm = audio[start:start + 48128]
+        snapshot = dict(audio=pcm, first=start, end=start + 48128, epoch=0)
+        grid, bearings, metric = search.run_snapshot(snapshot, continuity.prepare(snapshot))
+        weighted = frames(pcm) * np.hanning(1024)
+        folded = weighted.reshape(93, 14, 4, 256).sum(axis=-2)
+        spectra = np.fft.rfft(folded, axis=-1).astype(np.complex64)
+        cross = spectra[:, search.pairs[:, 0]] * spectra[:, search.pairs[:, 1]].conj()
+        normalized = cross / (abs(cross) + np.float32(1e-12))
+        total = np.zeros((91, 129), dtype=np.complex128)
+        for first in range(0, 93, 12):
+            partial = np.zeros((91, 129), dtype=np.complex64)
+            for frame in normalized[first:first + 12]:
+                partial += frame
+            total += partial
+        expected = np.fft.irfft(total / 93, n=256, axis=-1)
+        np.testing.assert_allclose(search.last_correlations, expected, atol=3e-8, rtol=1e-6)
+        array = coordinates(config['audio'])
+        delays = (array[search.pairs[:, 1]] - array[search.pairs[:, 0]]) @ search.vectors.T * 48000 / 343
+        lower = np.floor(delays).astype(int)
+        fraction = delays - lower
+        rows = np.arange(91)[:, None]
+        first = search.last_correlations[rows, lower % 256]
+        second = search.last_correlations[rows, (lower + 1) % 256]
+        expected_scores = (first + fraction * (second - first)).sum(axis=0)
+        np.testing.assert_allclose(grid[2].ravel(), expected_scores, atol=1e-11, rtol=1e-11)
+        assert metric['fft_frames_reused'] == (46 if start else 0)
+        assert len(bearings) == 2 and metric['full_directions'] == 5580
 
 
 def test_band_statistics_preserve_mel_position_and_match_analytic_ramp():
@@ -82,12 +65,3 @@ def test_band_statistics_preserve_mel_position_and_match_analytic_ramp():
     np.testing.assert_allclose(actual[120:], 23)
     np.testing.assert_allclose(band_features(values - 300), actual)
     assert not np.array_equal(band_features(values[::-1]), actual)
-
-
-def test_geometry_generation_is_reproducible_and_board_syntax_is_compatible():
-    spec = importlib.util.spec_from_file_location('geometry_export', ROOT / 'scripts/export_geometry.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    assert (ROOT / 'ps/geometry.py').read_text(encoding='utf-8') == module.generate()
-    for path in (ROOT / 'ps').glob('*.py'):
-        ast.parse(path.read_text(encoding='utf-8'), feature_version=(3, 6))

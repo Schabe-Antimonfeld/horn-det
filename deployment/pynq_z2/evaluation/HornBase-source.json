@@ -1,0 +1,76 @@
+{
+  "id": "y5stjsnp8s",
+  "version": 2,
+  "name": "HornBase - A Car Horns Dataset",
+  "description": "To provide data for machine learning models capable of classifying car horns in a traffic environment, we created HornBase, a dataset comprising 1080 audio files of exactly one-second duration each, manually labeled and balanced into two classes: horn and not horn. The audio excerpts were collected in ten specific situational scenarios in which the audio signals can be received in the car where the horn will be analyzed, as well as three different horn styles: a short honk, a long one, and an intermittent sequence of three consecutive short honks. For each possible audio segment, three temporal windows are cut, with the first containing the initial half of a horn, the second containing the entire horn, and the third containing the final half of a horn.",
+  "method": "The data was collected in a controlled traffic situation, involving two vehicles, one emitting horns and the other receiving the horns. In the receiving vehicle, two smartphones were recording the audio while a route was covered for each defined scenario. Subsequently, the data underwent pre-processing, involving manual cutting of audio segments with horns and without horns, each with a specific one-second time window.",
+  "doi": "10.17632/y5stjsnp8s.2",
+  "publish_date": "2024-02-06T06:57:57.970Z",
+  "last_modification_date": "2024-02-06T00:14:16.448Z",
+  "is_confidential": false,
+  "customer": {
+    "id": "7377952c-6404-4428-bbfc-77242cfc301e",
+    "name": "Mendeley Guests",
+    "chief_id": 810289,
+    "config": {
+      "repository_id": "MENDELEY_DATA",
+      "dataset_size_limit": 10737418240,
+      "doi_prefix": "10.17632"
+    },
+    "is_user_mendeley_admin": false,
+    "customer_roles": [],
+    "is_guest": true,
+    "is_user_customer_moderator": false
+  },
+  "owner": {
+    "id": "a63dee6a-2771-4866-b01a-6264ef8646e3",
+    "first_name": "Cleyton Aparecido",
+    "last_name": "Dim",
+    "display_name": "Cleyton Aparecido Dim",
+    "$ref": "/profiles/a63dee6a-2771-4866-b01a-6264ef8646e3"
+  },
+  "categories": [
+    {
+      "id": "data.elsevier.com/vocabulary/OmniScience/Concept-249523402",
+      "label": "Machine Learning"
+    }
+  ],
+  "licence": {
+    "id": "01d9c749-3c4d-4431-9df3-620b2dcfe144",
+    "short_name": "CC BY 4.0",
+    "full_name": "Creative Commons Attribution 4.0 International",
+    "description": "You can share, copy and modify this dataset so long as you give appropriate credit, provide a link to the CC BY license, and indicate if changes were made, but you may not do so in a way that suggests the rights holder has endorsed you or your use of the dataset. Note that further permission may be required for any content within the dataset that is identified as belonging to a third party.",
+    "url": "http://creativecommons.org/licenses/by/4.0",
+    "category": "Creative",
+    "customer_id": null
+  },
+  "institutions": [
+    {
+      "id": "e97ad4d9-872d-5db2-823f-b869ce3404fa",
+      "name": "Universidade Federal do Para"
+    }
+  ],
+  "funders": [],
+  "organisational_unit_names": [],
+  "contributors": [
+    {
+      "id": "a63dee6a-2771-4866-b01a-6264ef8646e3",
+      "first_name": "Cleyton Aparecido",
+      "last_name": "Dim",
+      "$ref": "/profiles/a63dee6a-2771-4866-b01a-6264ef8646e3"
+    },
+    {
+      "first_name": "Nelson Cruz Sampaio",
+      "last_name": "Neto",
+      "institution": "Universidade Federal do Para"
+    },
+    {
+      "first_name": "Jefferson Magalhães",
+      "last_name": "de Morais",
+      "institution": "Universidade Federal do Para"
+    }
+  ],
+  "related_links": [],
+  "custom_metadata": {},
+  "is_metadata_only": false
+}

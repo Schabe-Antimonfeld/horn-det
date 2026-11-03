@@ -1,12 +1,14 @@
 """Standalone board service or deterministic PCM replay; no PC prototype imports."""
 
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
+import sys
 import time
 import wave
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
     os.environ.setdefault(variable, '1')
@@ -15,11 +17,8 @@ import numpy as np
 
 from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
 from ps.configuration import ROOT, load_config
-from ps.detector import Detector
-from ps.band import load_spectral, validate_backend, validate_model
-from ps.dsp import Conditioning
+from ps.detector import Detector, validate_backend, validate_model
 from ps.pipeline import Pipeline
-from ps.srp import SrpDevice
 from ps.vision import CameraCache, Vision
 
 
@@ -47,16 +46,6 @@ def replay(path, settings, conditioning):
                 yield snapshot
 
 
-def cnn_client():
-    path = ROOT / 'vendor/fpga/cnn_host.py'
-    if not path.is_file():
-        path = ROOT.parents[1] / 'fpga/cnn_host.py'
-    specification = importlib.util.spec_from_file_location('board_cnn_host', str(path))
-    module = importlib.util.module_from_spec(specification)
-    specification.loader.exec_module(module)
-    return module.CnnDevice
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config')
@@ -74,26 +63,11 @@ def main(argv=None):
         raise ValueError('WAV replay requires the NumPy SRP backend')
     directory = Path(args.model).resolve() if args.model else resolve(config['detector']['model_directory'])
     metadata = validate_model(directory)
-    spectral = validate_backend(config, metadata)
-    processing = None
-    if config.get('streaming', {}).get('enabled'):
-        if 'refinement' in config:
-            from ps.refinement import Processing
-        else:
-            from ps.streaming import Processing
-        processing = Processing(config, metadata.get('provenance', {}).get('frontend', 'logmel'))
-    searcher = None
-    if processing is None and config['search'].get('algorithm', 'reference') != 'reference':
-        from ps.search import Search
-        searcher = Search(config['audio'], config['search'])
-    beamformer = None
-    if processing is None and config.get('beamforming', {}).get('implementation', 'reference') != 'reference':
-        from ps.beamforming import Beamformer
-        beamformer = Beamformer(config['audio'], config['beamforming'])
-    prepared = None
-    if 'conditioning' in config:
-        from ps.conditioning import create_conditioning
-        prepared = create_conditioning(config, processing.runtime if processing is not None else None)
+    validate_backend(config, metadata)
+    from ps.streaming import Processing
+    from ps.conditioning import create_conditioning
+    processing = Processing(config)
+    prepared = create_conditioning(config)
     if args.check:
         print(json.dumps({'config': 'valid', 'model_tag': metadata['model_tag'],
                           'classifier': metadata['architecture'], 'detector_backend': config['detector']['backend'],
@@ -127,31 +101,17 @@ def main(argv=None):
     pump = device = camera_cache = capture = scorer = None
     processed, status = 0, 'starting'
     try:
-        if prepared is not None:
-            conditioning = prepared
-        elif processing is not None:
-            from ps.streaming import conditioning as create_conditioning
-            conditioning = create_conditioning(config, processing.runtime)
-        else:
-            conditioning = Conditioning(config['audio']['channels'], config['audio'].get('gains'), config['audio'].get('delays'))
+        conditioning = prepared
         if args.replay:
-            detector = load_spectral(directory) if spectral else Detector(directory)
+            detector = Detector(directory)
             snapshots = replay(args.replay, config['audio'], conditioning)
         else:
-            if config['detector']['backend'] not in ('fpga', 'spectral'):
-                raise ValueError('Live mode requires FPGA CNN or NumPy spectral inference; integer backend is replay only')
             bitstream = resolve(config['hardware']['overlay'])
             if not bitstream.is_file() or not bitstream.with_suffix('.hwh').is_file():
                 raise ValueError('Matching bitstream and HWH are missing; complete the hardware handoff')
             from pynq import Overlay, allocate
             overlay = Overlay(str(bitstream))
-            if spectral:
-                detector = load_spectral(directory)
-            else:
-                device = cnn_client()(overlay, metadata, allocate, config['hardware']['timeout'])
-                detector = Detector(directory, device)
-            if config['search'].get('backend', 'numpy') == 'fpga':
-                scorer = SrpDevice(overlay, allocate, config['hardware']['timeout'])
+            detector = Detector(directory)
             capture = CaptureDevice(overlay, allocate, config['audio'], config['hardware']['timeout'])
             pump = CapturePump(capture, config['audio'], conditioning)
             pump.thread.start()
@@ -168,7 +128,7 @@ def main(argv=None):
             vision = Vision(settings)
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
-        pipeline = Pipeline(config, detector, scorer, searcher, beamformer, processing)
+        pipeline = Pipeline(config, detector, processing=processing)
         clock_origin, clock_epoch = None, None
         status = 'running'
         with (output / 'events.jsonl').open('w', encoding='utf-8') as stream:

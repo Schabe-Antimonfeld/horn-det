@@ -2,17 +2,17 @@
 
 ## Project Structure & Module Organization
 
-This repository documents FPGA vehicle-horn detection and direction estimation and contains a Python reference prototype.
+This repository documents FPGA vehicle-horn detection and direction estimation and contains one current fixed-weight Python/C algorithm.
 
 - `README.md`: project overview and processing pipeline.
 - `PROJECT_TREE.md`: repository layout.
 - `docs/`: thirteen numbered technical chapters covering acoustics, STFT, GCC/SRP-PHAT, Tiny CNN detection, FPGA implementation, camera control, datasets, and evaluation. `docs/README.md` indexes them.
 - `references/`: bibliography (`references.bib`), source descriptions, and `.url` download shortcuts; these are not bundled PDFs.
-- `prototype/`: uv-managed Python source and tests. Read `prototype/README.md` when implementing, running, or evaluating algorithms; its coverage table records implementation status and evidence boundaries.
+- `deployment/pynq_z2/`: the single current algorithm, model, replay fixtures, evaluation assets and tests. Read its `README.md` before implementing or evaluating, and `DATA.md` before changing assets. Historical research is archived on `codex/archive-2026-11-03`; `prototype/README.md` is only a pointer.
 
 ## Build, Test, and Development Commands
 
-Run `uv sync` and `uv run pytest` from `prototype/`; full model tests use `uv run --extra learning pytest`. Run `uv run python main.py audit` there for local document consistency checks. Useful read-only checks from the repository root:
+Run `uv sync --frozen`, `uv run --frozen pytest`, and `uv run --frozen python reproduce.py --output outputs/NEW_RUN` from `deployment/pynq_z2/`. GCC is required for the four native libraries; do not install tools automatically. Run `uv run --frozen python scripts/audit.py` for document consistency. Useful read-only checks from the repository root:
 
 ```powershell
 rg --files                 # List repository files.
@@ -31,7 +31,7 @@ Use clear, complete-word identifiers, preferably at most two words. Write code c
 
 ## Testing Guidelines
 
-Prototype tests use pytest in `prototype/tests/`. Verify signed delays, causal streaming, finite-frame boundaries, dataset grouping, event matching and fixed-point saturation against independent or analytic cases. Before each stage commit, check chapter consistency and run the relevant tests plus the existing suite. For documentation changes, verify equations, units, links, and consistency across chapters.
+Current tests use pytest in `deployment/pynq_z2/tests/`. Frozen feature evaluation does not replace full PCM or hardware validation. Verify signed delays, causal streaming, finite-frame boundaries, dataset grouping, event matching and fixed-point saturation against independent or analytic cases. Before each stage commit, check chapter consistency and run the relevant tests plus the existing suite. For documentation changes, verify equations, units, links, and consistency across chapters.
 
 For future algorithm validation, follow `docs/12_实验设计与评价指标.md`: compare GCC-PHAT, SRP-PHAT, and Horn-aware SRP on matched samples. Report angular errors, detection precision/recall/F1, false positives per hour, latency, and FPGA resources. Distinguish simulation from deployment evidence.
 

@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "archive_commit": "a8cda7b902a2c2fa9776d67c496a08a58ea21463",
+  "model_tag": 405187002,
+  "files": {
+    "model/manifest.json": "a4e495b83dd2b6dfd198169b26f941d6d15ba1120fe89a5d7ae221dfc423dfc4",
+    "model/weights.npz": "1826a9ba4109de8dcdb6ad7d78507f1ab0de9b9861ae0d6b32b9fcab563159b7",
+    "evaluation/ESC50-LICENSE.txt": "f6aec3a3283a2efdcbb1feff334adad7ab17c097bdec0cbb4eebdb9e16886074",
+    "evaluation/expected.json": "174e56ee985b7cb0faa18707ea1d6057d018df30b16e7bf1a38000d3a9f9e484",
+    "evaluation/HornBase-source.json": "6b7d91f4029bfb170bbe10dec5e49060548ff846e9ce9851323a11d4350f7358",
+    "evaluation/sources.json": "05816b41642c5c383f29fdf52e1fca2e8a6b7abbd0b5d00732e5caaf3835a262",
+    "evaluation/stress-original.json": "1efbc33f5abc0123e575e479521dd6d9173cc4351e77a45b217118fd309ab00d",
+    "evaluation/stress-original.npz": "ba1887d394d85f2425a0d4325486ca13c6584fb5dd45702874738ca2fe12a989",
+    "evaluation/stress-visible.json": "5e729c96cfc0e57bdfaaea2eb5743ba2ff9dca654004219a06787df2efd882f1",
+    "evaluation/stress-visible.npz": "b3db3ebc803be57a3b617d20316474bb2ca8e5d2af7bb56c970abe695d20a636",
+    "evaluation/test-original.json": "01b91b45a98e518856b38851abc2fb9af719763054d924c9097807958327eef0",
+    "evaluation/test-original.npz": "60fe2ed4b429fb50e2896582bb367333e603fb43bbdc7612983326319ccb7509",
+    "evaluation/test-visible.json": "d09ffbb30d5babceed0fc8bfe39566519b777135a37c24263963862a9356b0e3",
+    "evaluation/test-visible.npz": "2378ed9de363adce7c5199d60658b2a021380ae06a831fb17ff8179ed57110aa",
+    "examples/expected.json": "466d348169a56e1c05edb0a5559eda9fc25bbf1eddd130fbf71547f3d89c32fd",
+    "examples/horn-array14.wav": "95f83f7c7f85d9fe2fb278013cdf73b8ec6ff6f43338eb9fc903d66fb6fcb52f",
+    "examples/provenance.json": "31e81a003be959f44685785a6f541245667d347350652c78cdd9be8061d31235",
+    "examples/silence-array14.wav": "84a84305eb3490dc8a189380d413ca86b63d52a73d8d5d4fe794b158b3134de1"
+  },
+  "scope": "Fixed-weight replay and frozen candidate-feature evaluation; reused explored public sources and constructed arrays, no new blind road or hardware evidence"
+}
