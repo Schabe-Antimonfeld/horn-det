@@ -51,6 +51,9 @@ class Pipeline:
         if config.get('streaming', {}).get('enabled') and self.processing is None:
             from ps.streaming import Processing
             self.processing = Processing(config, getattr(detector, 'frontend', 'logmel'))
+        if self.processing is not None and hasattr(detector, 'native'):
+            detector.native = getattr(self.processing, 'native', None)
+            detector.decision_threshold = config['detector']['threshold']
         self.searcher = None
         if self.processing is not None:
             self.searcher = self.processing.search

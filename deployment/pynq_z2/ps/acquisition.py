@@ -1,10 +1,32 @@
 """Continuous PCM packet validation and bounded history independent of PYNQ imports."""
 
 import queue
+import gc
+import os
+import sys
 import threading
 import time
 
 import numpy as np
+
+
+class CaptureGCGuard:
+    """Exclude initialized objects from scans, restoring only a freeze owned here."""
+
+    def __init__(self):
+        self.owned = False
+
+    def prepare(self):
+        if self.owned or not hasattr(gc, 'freeze') or gc.get_freeze_count():
+            return
+        gc.collect()
+        gc.freeze()
+        self.owned = True
+
+    def close(self):
+        if self.owned:
+            gc.unfreeze()
+            self.owned = False
 
 
 class PacketDecoder:
@@ -23,7 +45,7 @@ class PacketDecoder:
         if header[5:7] != [self.samples, self.sample_rate] or header[7] & ~1:
             raise ValueError('PCM configuration or flags mismatch')
         payload = words[8:].view(np.int32)
-        if np.any(payload < -32768) or np.any(payload > 32767):
+        if payload.min() < -32768 or payload.max() > 32767:
             raise ValueError('PCM is not sign-extended INT16')
         first = header[2] | header[3] << 32
         gap = self.expected is not None and (first != self.expected or header[4] != self.dropped)
@@ -44,7 +66,7 @@ class WindowBuffer:
     def reset(self):
         self.cursor, self.filled, self.since = 0, 0, 0
         self.expected = None
-        self.saturation = False
+        self.last_clipped_end = None
 
     def feed(self, packet):
         audio = packet['audio']
@@ -61,21 +83,71 @@ class WindowBuffer:
         previous = self.filled
         self.filled = min(self.capacity, self.filled + len(audio))
         self.since += len(audio)
-        self.saturation = self.saturation or packet['clipped']
+        if packet['clipped']:
+            self.last_clipped_end = self.expected
         if self.filled < self.capacity or (previous == self.capacity and self.since < self.update):
             return None
         self.since = 0
         snapshot = np.concatenate((self.memory[self.cursor:], self.memory[:self.cursor]))
         return {'audio': snapshot, 'first': self.expected - self.capacity,
-                'end': self.expected, 'epoch': self.epoch, 'clipped': self.saturation}
+                'end': self.expected, 'epoch': self.epoch,
+                'clipped': self.last_clipped_end is not None and self.last_clipped_end > self.expected-self.capacity}
+
+
+class IncrementalWindowBuffer:
+    """Build overlapping fixed-packet windows incrementally, without a full-window copy at emission."""
+
+    def __init__(self, settings, dtype=np.int16):
+        self.capacity, self.update = settings['window_samples'], settings['update_samples']
+        self.packet, self.channels = settings['packet_samples'], settings['channels']
+        if not 0 < self.packet <= self.update <= self.capacity or self.capacity % self.packet or self.update % self.packet:
+            raise ValueError('Incremental history requires packet-aligned window and update sizes')
+        self.dtype = dtype
+        self.epoch = 0
+        self.reset()
+
+    def reset(self):
+        self.building = []
+        self.expected = self.next_start = None
+
+    def feed(self, packet):
+        audio = packet['audio']
+        if audio.shape != (self.packet, self.channels):
+            raise ValueError('Incremental history requires one complete configured packet')
+        first = packet['first']
+        if packet['gap'] or self.expected is not None and first != self.expected:
+            self.reset()
+            self.epoch += 1
+        if self.next_start is None:
+            self.next_start = first
+        if first == self.next_start:
+            # Only allocate here. First-touch and PCM copies are spread over packets.
+            self.building.append(dict(first=first, filled=0, clipped=False,
+                                      memory=np.empty((self.capacity, self.channels), dtype=self.dtype)))
+            self.next_start += self.update
+        self.expected = first + self.packet
+        result, pending = None, []
+        for window in self.building:
+            offset = window['filled']
+            window['memory'][offset:offset + self.packet] = audio
+            window['filled'] += self.packet
+            window['clipped'] = window['clipped'] or packet['clipped']
+            if window['filled'] == self.capacity:
+                result = dict(audio=window['memory'], first=window['first'], end=self.expected,
+                              epoch=self.epoch, clipped=window['clipped'])
+            else:
+                pending.append(window)
+        self.building = pending
+        return result
+
 
 
 class CaptureDevice:
-    def __init__(self, overlay, allocate, settings, timeout=2.0):
+    def __init__(self, overlay, allocate, settings, timeout=2.0, cacheable=True):
         self.dma, self.control = overlay.audio_dma, overlay.capture_control
         self.timeout, self.started, self.closed, self.faulted = timeout, False, False, False
         self.decoder = PacketDecoder(settings['channels'], settings['packet_samples'], settings['sample_rate'])
-        self.buffer = allocate(shape=(8 + settings['channels'] * settings['packet_samples'],), dtype=np.uint32)
+        self.buffer = allocate(shape=(8 + settings['channels'] * settings['packet_samples'],), dtype=np.uint32, cacheable=bool(cacheable))
 
     def receive(self):
         if self.closed or self.faulted:
@@ -123,13 +195,17 @@ class CaptureDevice:
 class CapturePump:
     """Keep acquisition independent of inference; only discard stale analysis snapshots."""
 
-    def __init__(self, device, settings, conditioning=None):
+    def __init__(self, device, settings, conditioning=None, nice=None):
+        if nice is not None and (type(nice) is not int or not -20 <= nice <= 19):
+            raise ValueError('Capture nice must be an integer between -20 and 19')
+        self.nice, self.effective_nice = nice, None
         self.conditioning = conditioning
-        self.device, self.history = device, WindowBuffer(settings, np.float64 if conditioning else np.int16)
+        self.device, self.history = device, IncrementalWindowBuffer(settings, np.float64 if conditioning else np.int16)
         self.pending = queue.Queue(maxsize=1)
         self.stop = threading.Event()
         self.error = None
         self.skipped, self.gaps = 0, 0
+        self.packets, self.dropped, self.clipped_packets = 0, 0, 0
         self.conditioning_seconds, self.conditioned_packets = 0.0, 0
         self.scratch = (np.empty((settings['packet_samples'], settings['channels']), dtype=np.float64)
                         if callable(getattr(conditioning, 'feed_into', None)) else None)
@@ -137,8 +213,20 @@ class CapturePump:
 
     def run(self):
         try:
+            if self.nice is not None:
+                if sys.platform != 'linux':
+                    raise RuntimeError('Capture thread priority requires Linux')
+                # Linux applies nice to the calling thread for who=0. The main
+                # analysis thread keeps its own priority; this worker exits at close.
+                os.setpriority(os.PRIO_PROCESS, 0, self.nice)
+                self.effective_nice = os.getpriority(os.PRIO_PROCESS, 0)
+                if self.effective_nice != self.nice:
+                    raise RuntimeError('Capture thread priority was not applied')
             while not self.stop.is_set():
                 packet = self.device.receive()
+                self.packets += 1
+                self.dropped = packet.get('dropped', 0)
+                self.clipped_packets += int(packet['clipped'])
                 self.gaps += int(packet['gap'])
                 if self.conditioning is not None:
                     began = time.perf_counter()
@@ -150,6 +238,7 @@ class CapturePump:
                     self.conditioned_packets += 1
                 snapshot = self.history.feed(packet)
                 if snapshot is not None:
+                    snapshot['available_monotonic'] = time.monotonic()
                     snapshot['conditioning'] = dict(seconds=self.conditioning_seconds, packets=self.conditioned_packets,
                                                     implementation=getattr(self.conditioning, 'implementation', type(self.conditioning).__name__),
                                                     fir=getattr(self.conditioning, 'fir', 'numpy') if getattr(self.conditioning, 'latency', 0) else 'disabled',
@@ -176,6 +265,8 @@ class CapturePump:
                 return self.pending.get(timeout=0.1)
             except queue.Empty:
                 if self.stop.is_set():
+                    if self.error is not None:
+                        raise RuntimeError('Capture worker failed: ' + str(self.error)) from self.error
                     raise RuntimeError('Capture worker stopped')
 
     def close(self):

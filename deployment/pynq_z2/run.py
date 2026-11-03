@@ -16,7 +16,7 @@ for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
 
 import numpy as np
 
-from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer
+from ps.acquisition import CaptureDevice, CapturePump, WindowBuffer, IncrementalWindowBuffer, CaptureGCGuard
 from ps.configuration import ROOT, load_config
 from ps.detector import Detector, validate_backend, validate_model
 from ps.pipeline import Pipeline
@@ -32,7 +32,7 @@ def replay(path, settings, conditioning):
     with wave.open(str(path), 'rb') as source:
         if (source.getnchannels(), source.getsampwidth(), source.getframerate()) != (14, 2, 48000):
             raise ValueError('Replay must be synchronized 14-channel PCM16/48k WAV')
-        history = WindowBuffer(settings, np.float64)
+        history = IncrementalWindowBuffer(settings, np.float64)
         scratch = (np.empty((512, 14), dtype=np.float64) if callable(getattr(conditioning, 'feed_into', None)) else None)
         first = 0
         while True:
@@ -64,6 +64,7 @@ def publish_preview(cache, output, previous, timestamp):
 
 
 def main(argv=None):
+    startup_started = time.perf_counter()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config')
     parser.add_argument('--model')
@@ -76,6 +77,8 @@ def main(argv=None):
     parser.add_argument('--heartbeat')
     parser.add_argument('--realtime', action='store_true')
     parser.add_argument('--preview', action='store_true')
+    parser.add_argument('--capture-nice', type=int)
+    parser.add_argument('--camera-startup-timeout', type=float, default=30.0)
     args = parser.parse_args(argv)
     config = load_config(args.config)
     def stopping():
@@ -124,31 +127,40 @@ def main(argv=None):
     (output / 'configuration.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
     pump = device = camera_cache = capture = scorer = None
     processed, status = 0, 'starting'
+    gc_guard = CaptureGCGuard()
     try:
         conditioning = prepared
-        if args.replay:
-            detector = Detector(directory)
-            snapshots = replay(args.replay, config['audio'], conditioning)
-        else:
+        startup = {}
+        detector = Detector(directory)
+        pipeline = Pipeline(config, detector, processing=processing)
+        if not args.replay:
             bitstream = resolve(config['hardware']['overlay'])
             if not bitstream.is_file() or not bitstream.with_suffix('.hwh').is_file():
                 raise ValueError('Matching bitstream and HWH are missing; complete the hardware handoff')
-            from pynq import Overlay, allocate
-            overlay = Overlay(str(bitstream))
-            detector = Detector(directory)
-            capture = CaptureDevice(overlay, allocate, config['audio'], config['hardware']['timeout'])
-            pump = CapturePump(capture, config['audio'], conditioning)
-            pump.thread.start()
-            def live_snapshots():
-                while True:
-                    yield pump.receive()
-            snapshots = live_snapshots()
+        camera_started = time.perf_counter()
         vision = None
         if config['vision']['enabled']:
             vision = ImageIO()
             camera_cache = CameraCache(config['camera']['sources'], vision, **config.get('camera_cache', {}))
             camera_cache.start()
-        pipeline = Pipeline(config, detector, processing=processing)
+            camera_cache.wait_ready(args.camera_startup_timeout)
+        startup['camera_seconds'] = time.perf_counter() - camera_started
+        if args.replay:
+            snapshots = replay(args.replay, config['audio'], conditioning)
+        else:
+            from pynq import Overlay, allocate
+            overlay = Overlay(str(bitstream))
+            capture = CaptureDevice(overlay, allocate, config['audio'], config['hardware']['timeout'])
+            pump = CapturePump(capture, config['audio'], conditioning, nice=args.capture_nice)
+            gc_guard.prepare()
+            pump.thread.start()
+            def live_snapshots():
+                while True:
+                    yield pump.receive()
+            snapshots = live_snapshots()
+        startup['total_seconds'] = time.perf_counter() - startup_started
+        (output / 'startup.json').write_text(json.dumps(startup), encoding='utf-8')
+        last_io = {}
         clock_origin, clock_epoch = None, None
         replay_started = time.monotonic()
         preview_sequence = None
@@ -166,7 +178,16 @@ def main(argv=None):
                     clock_origin = time.monotonic() - snapshot['end'] / float(config['audio']['sample_rate'])
                     clock_epoch = snapshot['epoch']
                 representative = clock_origin + ((snapshot['first'] + snapshot['end']) / 2 - conditioning.latency) / config['audio']['sample_rate']
+                analysis_started = time.monotonic()
+                cpu_clock = getattr(time, 'thread_time', None)
+                cpu_started = cpu_clock() if cpu_clock else None
                 event, evidence = pipeline.analyze(snapshot)
+                analysis_done = time.monotonic()
+                available = snapshot.get('available_monotonic')
+                event['analysis_cpu_seconds'] = cpu_clock() - cpu_started if cpu_clock else None
+                event['queue_wait_seconds'] = max(0.0, analysis_started - available) if available is not None else None
+                event['availability_to_complete_seconds'] = analysis_done - available if available is not None else None
+                output_started = time.perf_counter()
                 if 'conditioning' in snapshot:
                     event['conditioning'] = snapshot['conditioning']
                 event['recorded_at'] = datetime.now(timezone.utc).isoformat()
@@ -179,12 +200,18 @@ def main(argv=None):
                         preview_sequence = publish_preview(camera_cache, output, preview_sequence, event['recorded_at'])
                 event['skipped_windows'] = pump.skipped if pump else 0
                 event['capture_gaps'] = pump.gaps if pump else 0
-                stream.write(json.dumps(event, allow_nan=False) + '\n')
+                event['post_analysis_seconds'] = time.perf_counter() - output_started
+                encoding_started = time.perf_counter()
+                line = json.dumps(event, allow_nan=False) + '\n'
+                writing_started = time.perf_counter()
+                stream.write(line)
                 stream.flush()
+                last_io = dict(json_seconds=writing_started - encoding_started,
+                               event_write_seconds=time.perf_counter() - writing_started)
                 processed += 1
                 (output / 'health.json').write_text(json.dumps({'status': status, 'windows': processed,
                                                                'skipped_windows': event['skipped_windows'],
-                                                               'capture_gaps': event['capture_gaps']}), encoding='utf-8')
+                                                               'capture_gaps': event['capture_gaps'], 'last_io': last_io}), encoding='utf-8')
                 if args.limit and processed >= args.limit:
                     break
         if status != 'stopped':
@@ -198,7 +225,7 @@ def main(argv=None):
         raise
     finally:
         failures = []
-        for resource in (camera_cache, pump if pump is not None else capture, scorer, device):
+        for resource in (camera_cache, pump if pump is not None else capture, scorer, device, gc_guard):
             if resource is not None:
                 try:
                     resource.close()
@@ -206,6 +233,12 @@ def main(argv=None):
                     failures.append(str(error))
         (output / 'health.json').write_text(json.dumps({'status': status, 'windows': processed,
                                                        'cleanup_errors': failures,
+                                                       'packets': pump.packets if pump else None,
+                                                       'dropped': pump.dropped if pump else None,
+                                                       'clipped_packets': pump.clipped_packets if pump else None,
+                                                       'skipped_windows': pump.skipped if pump else 0,
+                                                       'capture_gaps': pump.gaps if pump else 0,
+                                                       'last_io': locals().get('last_io', {}),
                                                        'cameras': camera_cache.health() if camera_cache is not None else None,
                                                        'board_validated': False}), encoding='utf-8')
         if failures:

@@ -32,7 +32,7 @@ def package(output):
     output = Path(output).resolve()
     if output.exists() or output.suffix != '.zip':
         raise ValueError('Choose a fresh ZIP path')
-    names = ['README.md', 'HANDOFF.md', 'BOARD_PERFORMANCE.md', 'CAMERA.md', 'DATA.md',
+    names = ['README.md', 'HANDOFF.md', 'BOARD_PERFORMANCE.md', 'CAMERA.md', 'DATA.md', 'FULLFLOW_PERFORMANCE.md',
              'run.py', 'web.py', 'reproduce.py', 'assets.json', 'pyproject.toml', 'uv.lock', '.python-version', '.gitattributes']
     for folder, pattern in [('ps', '*.py'), ('ps', '*.c'), ('scripts', '*.py'),
                             ('config', '*.json'), ('model', '*'), ('examples', '*'), ('evaluation', '*'), ('tests', '*.py')]:
@@ -48,7 +48,7 @@ def package(output):
             content[name] = content[name].decode('utf-8').replace('](../../docs/', '](https://github.com/Schabe-Antimonfeld/horn-det/blob/main/docs/').encode('utf-8')
     manifest = dict(format=1, version='1.0.0', archive_branch='codex/archive-2026-11-03', model_tag=405187002,
                     files={name: hashlib.sha256(value).hexdigest() for name, value in content.items()},
-                    native_build_components=['search','stream','conditioning','refinement'],
+                    native_build_components=['search','stream','conditioning','refinement','dsp'],
                     native_library_included=False, firmware_included=False, board_validated=False,
                     scope='Single current algorithm; fixed-weight replay and frozen-feature evaluation; research/noncommercial')
     content['bundle.json'] = (json.dumps(manifest, indent=2) + '\n').encode('utf-8')

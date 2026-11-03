@@ -217,8 +217,9 @@ def test_live_entry_uses_latest_ps_model_and_closes_capture(tmp_path, monkeypatc
     monkeypatch.setattr(service, 'CaptureDevice', lambda *args: SimpleNamespace())
     snapshot = dict(audio=np.zeros((48128,14)), first=0, end=48128, epoch=0, clipped=False)
     pump = SimpleNamespace(thread=SimpleNamespace(start=lambda: None), receive=lambda: snapshot,
-                           close=lambda: closed.append('capture'), gaps=0, skipped=0)
-    monkeypatch.setattr(service, 'CapturePump', lambda *args: pump)
+                           close=lambda: closed.append('capture'), gaps=0, skipped=0,
+                           packets=94, dropped=0, clipped_packets=0)
+    monkeypatch.setattr(service, 'CapturePump', lambda *args, **kwargs: pump)
     output = tmp_path / 'events'
     assert service.main(['--config',str(path),'--output',str(output),'--limit','1']) == 0
     event = json.loads((output/'events.jsonl').read_text())

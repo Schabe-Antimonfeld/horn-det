@@ -110,5 +110,11 @@
   "refinement": {
     "fused_input": true,
     "independent_beams": true
+  },
+  "acceleration": {
+    "enabled": true,
+    "beam": false,
+    "mel": false,
+    "prepare": false
   }
 }

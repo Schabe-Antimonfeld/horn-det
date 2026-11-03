@@ -30,6 +30,8 @@ class Detector:
     """Score a completed one-second beam using the 30866-parameter NumPy MLP."""
 
     def __init__(self, directory):
+        self.native = None
+        self.decision_threshold = 0.9
         directory = Path(directory)
         self.metadata = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
         if (self.metadata.get('format') != 1 or self.metadata.get('architecture') != 'BandTemporalMLP-30866'
@@ -52,8 +54,11 @@ class Detector:
     def score(self, contexts):
         if len(contexts) == 0:
             return dict(score=0.0, clipped=False, contexts=0, backend='spectral-temporal-numpy')
-        inputs = temporal_features(contexts)
-        return self.score_inputs(inputs)
+        inputs = self.native.temporal(contexts) if self.native is not None else temporal_features(contexts)
+        result = self.score_inputs(inputs)
+        if self.native is not None and abs(result['score'] - self.decision_threshold) < 1e-8:
+            result = self.score_inputs(temporal_features(contexts))
+        return result
 
     def score_inputs(self, inputs):
         """Score one frozen 640-value temporal feature vector using the same inference path."""

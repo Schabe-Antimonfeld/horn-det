@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_bundle_is_deterministic_complete_and_independent_of_checkout(tmp_path):
     first, second = tmp_path/'first.zip', tmp_path/'second.zip'
     manifest = package(first)
+    assert manifest['native_build_components'] == ['search', 'stream', 'conditioning', 'refinement', 'dsp']
     package(second)
     assert first.read_bytes() == second.read_bytes()
     bundle = tmp_path/'bundle'

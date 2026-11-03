@@ -26,6 +26,43 @@ def validate_source(source):
         raise ValueError('Camera backend must be http or usb')
 
 
+def jpeg_dimensions(data):
+    """Read bounded JPEG SOF dimensions without decompressing image pixels."""
+    if not data.startswith(b'\xff\xd8') or len(data) > 8*1024*1024:
+        raise ValueError('Invalid or oversized JPEG frame')
+    offset = 2
+    sof = {0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf}
+    while offset < len(data):
+        if data[offset] != 255:
+            raise ValueError('Invalid JPEG marker')
+        while offset < len(data) and data[offset] == 255:
+            offset += 1
+        if offset >= len(data):
+            break
+        marker = data[offset]
+        offset += 1
+        if marker in (0xd9, 0xda):
+            break
+        if marker == 1 or 0xd0 <= marker <= 0xd7:
+            continue
+        if offset+2 > len(data):
+            break
+        length = int.from_bytes(data[offset:offset+2], 'big')
+        if length < 2 or offset+length > len(data):
+            raise ValueError('Truncated JPEG segment')
+        if marker in sof:
+            if length < 8 or data[offset+2] != 8 or length != 8+3*data[offset+7]:
+                raise ValueError('Unsupported JPEG frame header')
+            height = int.from_bytes(data[offset+3:offset+5], 'big')
+            width = int.from_bytes(data[offset+5:offset+7], 'big')
+            if width < 1 or height < 1:
+                raise ValueError('Invalid JPEG dimensions')
+            return width, height
+        offset += length
+    raise ValueError('JPEG frame has no dimensions')
+
+
+
 class UsbCamera:
     """Read a strictly negotiated V4L2 mode inside an isolated capture process."""
 
@@ -55,6 +92,11 @@ class UsbCamera:
             self.mode = {'width': int(width), 'height': int(height), 'fourcc': actual_format,
                          'fps_reported': float(fps), 'fps_requested': source['fps'],
                          'sustained_rate_verified': False}
+            # V4L2 MJPG already contains JPEG. Preserve its bytes instead of
+            # decompressing and recompressing every captured frame on the ARM.
+            self.raw_jpeg = bool(fourcc == 'MJPG' and hasattr(cv2, 'CAP_PROP_CONVERT_RGB')
+                                 and self.capture.set(cv2.CAP_PROP_CONVERT_RGB, 0))
+            self.mode['jpeg_passthrough'] = self.raw_jpeg
         except Exception:
             self.capture.release()
             raise
@@ -63,6 +105,15 @@ class UsbCamera:
         started = time.monotonic()
         success, image = self.capture.read()
         ended = time.monotonic()
+        if self.raw_jpeg:
+            if not success or image is None or image.dtype != np.uint8 or image.ndim > 2 or image.nbytes > 8*1024*1024:
+                raise RuntimeError('USB raw MJPEG read failed')
+            data = image.tobytes()
+            if jpeg_dimensions(data) != (self.source['width'], self.source['height']):
+                raise RuntimeError('USB JPEG dimensions differ from the requested mode')
+            return {'jpeg': data, 'time': (started+ended)/2, 'timing_verified': False,
+                    'timestamp_kind': 'host_read_midpoint', 'mode': self.mode,
+                    'jpeg_reencoded': False}
         if not success or image is None or image.shape != (self.source['height'], self.source['width'], 3) or image.dtype != np.uint8:
             raise RuntimeError('USB read failed or returned a different image mode')
         success, encoded = self.cv2.imencode('.jpg', image)
@@ -76,7 +127,7 @@ class UsbCamera:
         self.capture.release()
 
 
-def usb_worker(source, messages, stopped):
+def usb_worker(source, messages, stopped, period=0.25):
     """Isolate potentially blocking V4L2 reads from the main service lifecycle."""
     camera = None
     def publish(message):
@@ -95,11 +146,15 @@ def usb_worker(source, messages, stopped):
         import cv2
         camera = UsbCamera(source, cv2)
         sequence = 0
+        next_publish = 0.0
         while not stopped.is_set():
             frame = camera.read()
             sequence += 1
             frame['sequence'] = sequence
-            publish({'kind': 'frame', 'frame': frame})
+            now = time.monotonic()
+            if now >= next_publish:
+                publish({'kind': 'frame', 'frame': frame})
+                next_publish = now + period
     except Exception as error:
         publish({'kind': 'error', 'message': str(error)})
     finally:
@@ -159,7 +214,7 @@ class CameraCache:
             if source.get('backend', 'http') == 'usb':
                 context = multiprocessing.get_context('spawn')
                 messages, stopped = context.Queue(maxsize=1), context.Event()
-                process = context.Process(target=usb_worker, args=(source, messages, stopped), daemon=True)
+                process = context.Process(target=usb_worker, args=(source, messages, stopped, self.period), daemon=True)
                 process.start()
                 self.workers.append((process, messages, stopped))
                 thread = threading.Thread(target=self.run_usb, args=(source, process, messages), daemon=True)
@@ -189,14 +244,32 @@ class CameraCache:
                     self.errors[source['id']] = str(error)
             self.stop.wait(max(0, self.period - (time.monotonic() - began)))
 
+    def wait_ready(self, timeout=30.0):
+        """Complete camera initialization before starting time-critical audio."""
+        if timeout <= 0:
+            raise ValueError('Camera startup timeout must be positive')
+        deadline = time.monotonic()+timeout
+        while True:
+            with self.lock:
+                if self.errors:
+                    raise RuntimeError('Camera startup failed: '+str(self.errors))
+                if all(self.history[source['id']] for source in self.sources):
+                    return
+            if time.monotonic() >= deadline:
+                raise TimeoutError('Camera did not produce its first frame')
+            time.sleep(0.02)
+
     def run_usb(self, source, process, messages):
-        while not self.stop.is_set():
+        # Keep draining during shutdown so the child queue feeder can finish.
+        # Stopping the reader first makes process.join wait for its own full pipe.
+        while not self.stop.is_set() or process.is_alive():
             try:
                 message = messages.get(timeout=0.2)
             except Empty:
                 if not process.is_alive():
-                    with self.lock:
-                        self.errors.setdefault(source['id'], 'USB capture process exited; restart after checking the device')
+                    if not self.stop.is_set():
+                        with self.lock:
+                            self.errors.setdefault(source['id'], 'USB capture process exited; restart after checking the device')
                     return
                 continue
             with self.lock:
@@ -209,13 +282,13 @@ class CameraCache:
                     self.modes[source['id']] = message['frame']['mode']
                     self.errors.pop(source['id'], None)
 
-    def nearest(self, identity, timestamp):
+    def nearest(self, identity, timestamp, decode=True):
         with self.lock:
             frames = list(self.history.get(identity, []))
         if not frames:
             return None
         frame = dict(min(frames, key=lambda item: abs(item['time'] - timestamp)))
-        if 'image' not in frame:
+        if decode and 'image' not in frame:
             frame['image'] = self.vision.cv2.imdecode(np.frombuffer(frame['jpeg'], dtype=np.uint8), self.vision.cv2.IMREAD_COLOR)
             if frame['image'] is None:
                 raise ValueError('Cached USB JPEG cannot be decoded')

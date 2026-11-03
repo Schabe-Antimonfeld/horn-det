@@ -68,6 +68,12 @@ def validate_config(config):
             raise ValueError('Native library overrides must be absolute paths')
     from ps.conditioning import validate_options as validate_conditioning
     validate_conditioning(config.get('conditioning', {}))
+    acceleration = config.get('acceleration', {})
+    if (not isinstance(acceleration, dict) or set(acceleration) - {'enabled', 'beam', 'mel', 'prepare', 'native_library'}
+            or any(type(acceleration[key]) is not bool for key in ('enabled', 'beam', 'mel', 'prepare') if key in acceleration)):
+        raise ValueError('Invalid native DSP acceleration settings')
+    if 'native_library' in acceleration and not Path(acceleration['native_library']).is_absolute():
+        raise ValueError('DSP library override must be absolute')
     detector = config['detector']
     if detector['backend'] != 'spectral' or not all(0 <= detector[key] <= 1 for key in ('threshold', 'margin')):
         raise ValueError('Unsupported detector backend or gates')

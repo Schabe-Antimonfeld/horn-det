@@ -14,9 +14,9 @@ uv run --frozen python reproduce.py --output outputs/reproduction
 uv run --frozen pytest
 ```
 
-Windows若GCC不在PATH，可在reproduce命令追加`--compiler D:/MinGW/bin/gcc.exe`。uv首次同步需要网络或已有依赖缓存，包内没有Python、uv、编译器和依赖轮子。依赖锁定NumPy2.5.3、pytest9.1.1及其测试依赖，均为原项目已有依赖。源码包含四个C核，必须在当前机器编译；不把Windows DLL复制到ARM。
+Windows若GCC不在PATH，可在reproduce命令追加`--compiler D:/MinGW/bin/gcc.exe`。uv首次同步需要网络或已有依赖缓存，包内没有Python、uv、编译器和依赖轮子。依赖锁定NumPy2.5.3、pytest9.1.1及其测试依赖，均为原项目已有依赖。源码包含五个C库，必须在当前机器编译；不把Windows DLL复制到ARM。
 
-`reproduce.py`按顺序校验资产SHA-256、编译或验证四个库、运行两段PCM回放、比对冻结的数值与方向证据，并单独验证当前单窗确认状态及0.90门限，再用固定权重重新推理672个场景的冻结特征并计算指标。成功报告为`outputs/reproduction/report.json`，含环境、库/数据哈希、模型标签、事件和评测结果；输出目录必须是新目录。
+`reproduce.py`按顺序校验资产SHA-256、编译或验证五个库、运行两段PCM回放、比对冻结的数值与方向证据，并单独验证当前单窗确认状态及0.90门限，再用固定权重重新推理672个场景的冻结特征并计算指标。成功报告为`outputs/reproduction/report.json`，含环境、库/数据哈希、模型标签、事件和评测结果；输出目录必须是新目录。
 
 ## 结果与证据范围
 
@@ -91,3 +91,12 @@ uv run --frozen python scripts/simulate_downward.py --source-directory ESC50_AUD
 计数按事件去重，时间/回放模式和相机缺帧状态明确显示，数据持久保存且不自动清理。局域网实机启动、接口、数据位置和限制详见包内`frontend/README.md`或仓库根目录frontend/README.md。电脑回放与页面联调不能证明ARM500 ms、USB取流或声画标定已通过。
 
 监控台交付包为horn_dashboard_20261104.zip，包含同一算法及frontend；旧single090包保留作为不含监控台的历史交付。213项仓库测试与Chrome桌面/手机联调通过；实机部分仍按HANDOFF验收。
+
+
+## 第19节板端交接对应的流程优化
+
+本轮整合11/3—11/4交接包的原始MJPG、发布节流、相机先就绪、按需解码及退出排空；采集使用cacheable DMA并保留wait后解码、增量独立组窗和当前窗饱和标志。队列仍为1，单窗0.90不变，不恢复YOLO或替换PMODA固件。
+
+新增libdsp_v3.so（ABI3），默认仅C时间统计；波束、Mel和另一种Hann遍历默认关闭，保留给同机对照。五库由scripts/build.py统一构建，Windows DLL不复制到ARM。基于同一59.66秒交接录音的交替配对，电脑双候选连续窗中位10.128→9.877 ms，约2.5%，最大值未保证改善，不能外推ARM500 ms。新包为horn_fullflow_20261104.zip；旧dashboard包仍保留。
+
+启动、线程CPU、排队、相机/预览、日志分开计时。详细来源哈希、负结果、回退、受控跳窗测试及板端300秒验收步骤见[FULLFLOW_PERFORMANCE.md](FULLFLOW_PERFORMANCE.md)。实际麦克风录音仅作本地配对，不包含在算法ZIP，也没有鸣笛/方向真值。固件路径及实测校准由持板队员填写，不能用main旧RTL覆盖已经验收的PMODA固件。

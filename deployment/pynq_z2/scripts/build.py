@@ -1,4 +1,4 @@
-"""Build or verify the four native libraries used by the single current pipeline."""
+"""Build or verify the five native libraries used by the single current pipeline."""
 
 import argparse
 import hashlib
@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 NAMES = {'search': ('srp_search.dll', 'libsrp.so', 'search_kernel.c'),
          'stream': ('streaming.dll', 'libstream.so', 'stream_kernel.c'),
          'conditioning': ('conditioning.dll', 'libconditioning.so', 'conditioning_kernel.c'),
-         'refinement': ('refinement.dll', 'librefinement.so', 'refinement_kernel.c')}
+         'refinement': ('refinement.dll', 'librefinement.so', 'refinement_kernel.c'),
+         'dsp': ('dsp_v3.dll', 'libdsp_v3.so', 'dsp_kernel.c')}
 
 
 def build(compiler=None, directory=None):
@@ -41,7 +42,7 @@ def configure(config, directory):
     """Bind a verified library directory without introducing a second algorithm configuration."""
     directory = Path(directory).resolve()
     for name, (windows, linux, _) in NAMES.items():
-        section = 'streaming' if name == 'stream' else name
+        section = 'streaming' if name == 'stream' else 'acceleration' if name == 'dsp' else name
         config[section]['native_library'] = str(directory / (windows if sys.platform == 'win32' else linux))
     return config
 

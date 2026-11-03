@@ -21,7 +21,8 @@ def validate_options(options):
 
 
 class Beamformer:
-    def __init__(self, audio, options=None):
+    def __init__(self, audio, options=None, native=None):
+        self.native = native
         self.options = dict(options or {})
         validate_options(self.options)
         self.audio = dict(audio)
@@ -87,7 +88,7 @@ class Beamformer:
             plan, hit = self._plan(bearing)
             plans.append(plan)
             hits += int(hit)
-        metric = dict(implementation='refined_stream_fft', beams=len(plans), taps=65, fft_size=self.fft_size,
+        metric = dict(native_synthesis=self.native is not None, implementation='refined_stream_fft', beams=len(plans), taps=65, fft_size=self.fft_size,
                       cache_hits=hits, fft_hop=self.hop, fft_blocks_total=count, fft_blocks_computed=0,
                       fft_blocks_reused=0, output_reused=False, output_reused_beams=0, output_reuse_flags=[],
                       support_samples=0, fft_seconds=0.0, synthesis_seconds=0.0, spectrum_cache_bytes=0)
@@ -130,7 +131,8 @@ class Beamformer:
             for piece in pieces:
                 if cursor + len(piece) > start:
                     selected = piece[max(0, start - cursor):]
-                    combined = np.einsum('bcf,cf->bf', selected, plan['spectrum'], optimize=False)
+                    combined = (self.native.beam(selected, plan['spectrum']) if self.native is not None else
+                                np.einsum('bcf,cf->bf', selected, plan['spectrum'], optimize=False))
                     tails.append(np.fft.irfft(combined, n=self.fft_size, axis=-1)[:, self.history:].reshape(-1))
                 cursor += len(piece)
             tail = np.concatenate(tails)

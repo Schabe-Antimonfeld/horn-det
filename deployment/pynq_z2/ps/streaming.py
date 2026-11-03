@@ -133,7 +133,8 @@ def bearing_key(bearing):
 
 
 class Frontend:
-    def __init__(self, frontend='logmel'):
+    def __init__(self, frontend='logmel', native=None):
+        self.native = native
         if frontend not in ('logmel', 'centered_logmel'):
             raise ValueError('Unsupported streaming frontend')
         self.frontend = frontend
@@ -142,6 +143,7 @@ class Frontend:
         frequency = np.fft.rfftfreq(1024, 1 / 48000)
         self.bank = np.maximum(0, np.minimum((frequency[None] - edges[:-2, None]) / (edges[1:-1, None] - edges[:-2, None]),
                     (edges[2:, None] - frequency[None]) / (edges[2:, None] - edges[1:-1, None])))
+        self.bank.setflags(write=False)
         self.cache, self.end = OrderedDict(), None
 
     def run(self, waveform, bearing, context, support):
@@ -161,13 +163,14 @@ class Frontend:
             logarithms[reused] = previous[1][ids]
         missing = np.flatnonzero(~reused)
         selected = values if len(missing) == len(values) else values[missing]
-        power = abs(np.fft.rfft(selected * self.window, axis=-1)) ** 2
-        logarithms[missing] = np.log(power @ self.bank.T + 1e-12)
+        spectrum = np.fft.rfft(selected * self.window, axis=-1)
+        logarithms[missing] = (self.native.mel(spectrum, self.bank) if self.native is not None
+                               else np.log(abs(spectrum) ** 2 @ self.bank.T + 1e-12))
         self.cache[key] = (context['end'], logarithms.copy())
         self.cache.move_to_end(key)
         if len(self.cache) > 64:
             self.cache.popitem(last=False)
-        metric = dict(frames_computed=len(missing), frames_reused=int(reused.sum()), frames_total=len(values))
+        metric = dict(native_mel=self.native is not None, frames_computed=len(missing), frames_reused=int(reused.sum()), frames_total=len(values))
         if len(logarithms) < 24:
             return np.empty((0, 40, 24)), metric
         starts = sorted(set(range(0, len(logarithms) - 24 + 1, 12)) | {len(logarithms) - 24})
@@ -181,8 +184,13 @@ class Processing:
     def __init__(self, config, frontend='logmel'):
         from ps.search import Search
         from ps.beamforming import Beamformer
+        from ps.dsp_native import NativeDSP
+        options = config.get('acceleration', {})
+        self.native = NativeDSP(options.get('native_library')) if options.get('enabled', False) else None
         self.runtime = Runtime(config['streaming'].get('native_library'))
         self.continuity = Continuity(config['audio'])
         self.search = Search(config['audio'], config['search'], self.runtime, config['refinement'])
-        self.beams = Beamformer(config['audio'], config['beamforming'])
-        self.frontend = Frontend(frontend)
+        if self.native is not None and options.get('prepare', False):
+            self.search.preparation = self.native
+        self.beams = Beamformer(config['audio'], config['beamforming'], self.native if options.get('beam', False) else None)
+        self.frontend = Frontend(frontend, self.native if options.get('mel', False) else None)

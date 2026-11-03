@@ -57,7 +57,8 @@ def test_capture_resets_before_releasing_dma_memory():
     class Buffer(np.ndarray):
         def freebuffer(self):
             actions.append('free')
-    def allocate(shape, dtype):
+    def allocate(shape, dtype, cacheable):
+        assert cacheable is True
         return np.zeros(shape, dtype=dtype).view(Buffer)
     class Channel:
         def transfer(self, buffer):
